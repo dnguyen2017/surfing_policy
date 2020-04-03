@@ -97,7 +97,7 @@ sim_df  %>%
   #filter(.id %in% sample_ids) %>%
   ggplot() +
   #geom_point(aes(x = day, y = 0, col = as.factor(policy)), size = 1) +
-  geom_point(aes(x = day, y = 0, col = as.factor(thresh_crossed)), shape = 3, size = 1) + # show surf policy at bottom
+  geom_point(aes(x = day, y = 0, col = as.factor(thresh_crossed)), shape = 22, size = 1, alpha = 0.5) + # show surf policy at bottom
   scale_color_manual(values = c(NA, "black")) +
   # geom_point(aes(x = day, y = max(Ia + Ip + Is) + 100, col = as.factor(thresh_crossed))) + # show surf policy at top
   geom_line(aes(x = day, y = Ia + Ip + Is, group = .id), col = "purple") +
@@ -111,7 +111,8 @@ sim_df  %>%
        x = "days",
        caption = "All simulations begin with no controls for first 60 days. 
        Rows are the duration of the initial social distancing policy. 
-       Columns are the policy chosen after the inital social distancing ends.")
+       Columns are the policy chosen after the inital social distancing ends.") +
+  theme(legend.position = "n")
 
 
 # try to shade background
