@@ -94,11 +94,15 @@ sim_df <-
 # plot total infected and hospitalized
 sample_ids <- base::sample(seq_along(1:n_sim), 10)
 sim_df  %>%
-  filter(.id %in% sample_ids) %>%
+  #filter(.id %in% sample_ids) %>%
   ggplot() +
+  #geom_point(aes(x = day, y = 0, col = as.factor(policy)), size = 1) +
+  geom_point(aes(x = day, y = 0, col = as.factor(thresh_crossed)), shape = 3, size = 1) + # show surf policy at bottom
+  scale_color_manual(values = c(NA, "black")) +
+  # geom_point(aes(x = day, y = max(Ia + Ip + Is) + 100, col = as.factor(thresh_crossed))) + # show surf policy at top
   geom_line(aes(x = day, y = Ia + Ip + Is, group = .id), col = "purple") +
   geom_line(aes(x = day, y = H, group = .id), col = "darkgreen") +
-  ylim(0, 1000) +
+  #ylim(0, 1000) +
   scale_y_log10() +
   facet_grid(t_social_dist ~ control_policy) +
   labs(title = "Epidemic scenarios under alternative management strategies",
@@ -111,13 +115,16 @@ sim_df  %>%
 
 
 # try to shade background
+# code is still shitty. Vline is very slow. maybe use annotate (but would need all xmin, xmax pairs)?
 sim_df  %>%
+  mutate(policy = ifelse(policy == 2, NA, policy)) %>%
   # filter(.id %in% sample_ids) %>%
   filter(day <= 1000) %>%
   ggplot() +
+  geom_vline(aes(xintercept = day, col = as.factor(policy)), alpha = 0.1) + # for what policy is in effect
+  geom_vline(aes(xintercept = day, col = as.factor(thresh_crossed)), alpha = 0.1) + # when surfing is on or off
   geom_line(aes(x = day, y = Ia + Ip + Is, group = .id), col = "purple") +
   geom_line(aes(x = day,  y = H, group = .id), col = "darkgreen") +
-  geom_vline(aes(xintercept = day, col = as.factor(policy)), alpha = 0.1) +
   #geom_rect(aes(fill = as.factor(policy), xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf), alpha = 0.5) +
   ylim(0, 1000) +
   scale_y_log10() +
