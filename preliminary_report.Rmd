@@ -10,6 +10,16 @@ knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 ```
 
+# Sensitivity analysis
+I am varying the proportional contact rate under self-isolation and social distancing.
+
+* Individuals with severe symptoms have 0 contacts.
+* Individuals with mild symptoms have 10 - 30 % contacts compared to normal.
+* Inviduals under social distancing have 10 - 30 % of contacts compared to normal.
+
+I also assume that $\beta_\text{isolated, mild symptoms} \leq \beta_\text{social dist}$
+
+Going down the page, the plots show scenarios where distancing and isolation are less effective.
 
 ```{r simulation, cache = TRUE, include = FALSE}
 ## note, need to figure out how to invalidate cache when I change source("model code") 
@@ -150,7 +160,7 @@ for(i in seq_along(reduction_intervention)) {
 }
 ```
 
-
+Note that stochastic fade-outs under surfing policies are more common when contacts are strongly reduced and when the initial social distancing order lasts for longer periods of time.
 
 ```{r plot_ts, warning = FALSE, eval = TRUE}
 ts_plot[[1]]  
@@ -162,6 +172,10 @@ ts_plot[[6]]
 ```
 
 # Efficient frontier
+
+I think the variability in the person-days under shut down for the surfing policy are caused by the stochastic fade outs. This variability shrinks as behavioral changes are less effective at reducing contacts since fade-outs become less common.
+
+Note that the x-axis is on the log10 scale here, so the differences between surfing and continuous social distancing are quite larger than they first appear.
 
 ```{r}
 summary_df <-
@@ -251,4 +265,16 @@ susc_plot[[4]]
 susc_plot[[5]]
 susc_plot[[6]]
 ```
+
+# todo
+
+* look at the effect of different thresholds for the surfing policy. Right now, I'm using 20 hospitalized cases to trigger shutdowns which are lifted when hospitalized cases drop to $\leq$ 2.
+
+* Consider including some rules for the "continue social distancing" policy that dictate when social exclusion ends.
+
+* Model death rates as a function of hospital capacity.
+
+For the NSF proposal, should I have economic structure included in the model? I.e., essential workers, work from home, furloughed, laid off.
+
+In a [recent poll of economists about covid-19](http://www.igmchicago.org/surveys/policy-for-the-covid-19-crisis/), this guy, [José Scheinkman](http://www.igmchicago.org/participants/jose-scheinkman/)  stated (without any evidence) that "Optimal strategy involves multiple waves of contact reduction." He might be someone worth reaching out to.
 
