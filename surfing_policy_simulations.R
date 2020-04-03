@@ -140,6 +140,23 @@ sim_df  %>%
 
 
 # calculate total person-days locked down and total dead
+summary_df <-
+  sim_df %>%
+  group_by(.id, t_social_dist, control_policy) %>%
+  # mutate() %>%
+  mutate(total_death = last(D, order_by = day),                                      # get cumulative death over simulation
+         pd_surf = ifelse(policy == 2, (thresh_crossed*(S + E + Ia + Ip + R)), 0),   # get daily total ppl under control
+         pd_dist = ifelse(policy == 1, (S + E + Ia + Ip + R), 0)) %>%
+  summarise(total_death = mean(total_death),
+            pd_total = sum(pd_surf) + sum(pd_dist))                                  # add up daily pd over simulation
+
+summary_df %>%
+  ggplot(aes(x = pd_total, y = total_death, col = control_policy)) +
+  geom_point() +
+  scale_x_log10() + 
+  theme(legend.position = "top") +
+  facet_wrap(~t_social_dist)
+
 
 # surfing policy
 summary_surf <-
