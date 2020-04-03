@@ -1,0 +1,254 @@
+---
+title: "Preliminary COVID-19 models"
+author: "David Nguyen"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+```
+
+
+```{r simulation, cache = TRUE, include = FALSE}
+## note, need to figure out how to invalidate cache when I change source("model code") 
+# define params
+covid_params <- c(
+  beta0            = 0.5
+  , Ca               = 1
+  , Cp               = 1
+  , Cs               = 1
+  , Cm               = 1
+  , alpha            = 1/3
+  , gamma            = 1/5.2
+  , lambda_a         = 1/7
+  , lambda_s         = 1/4
+  , lambda_m         = 1/7
+  , lambda_p         = 1/0.5
+  , rho              = 1/10.7
+  , delta            = 0.2
+  , mu               = 19/20
+  , N                = 5e6 
+  , E0               = 20
+)
+
+# time line
+years <- 5
+sim_length <- round(365.25*years)
+
+# make matrix of policy choices
+control_pars <- 
+  expand.grid(## policy choices
+              t_nothing = 60             # days at beginning of outbreak w/o control
+              ,t_social_dist = c(30, 60, 90) # days of social distancing
+              ,control_policy = c(0,1,2)
+              ## intervention effects
+              ,c_iso_severe = 0
+              ,c_iso_mild   = c(0.1, 0.2, 0.3)
+              ,c_social_dist = c(0.1, 0.2, 0.3)
+              #,c_thresh_int = c(0.2, 0.3, 0.4)
+              # policy rules
+              ,start_thresh_int = 20
+              ,stop_thresh_int  = 2
+              )
+
+# adjust control pars
+# assume that beta reduction under soc dist == surfing (when control on)
+control_pars$c_thresh_int <- control_pars$c_social_dist 
+# assume that contacts of iso_mild <= other social dist
+control_pars <- control_pars[control_pars$c_iso_mild <= control_pars$c_social_dist,] 
+
+# init simulation
+sim_list <- vector("list", length = nrow(control_pars))
+n_sim <- 50
+
+# run simulations
+for (i in seq_along(sim_list)) {
+  
+  # set policy choices
+  t_nothing <- control_pars[i, "t_nothing"]
+  t_social_dist <- control_pars[i, "t_social_dist"]
+  control_policy <- control_pars[i, "control_policy"]
+  
+  # effect of interventions (proportion reduction of beta)
+  c_iso_severe <- control_pars[i, "c_iso_severe"]
+  c_iso_mild   <- control_pars[i, "c_iso_mild"]
+  c_social_dist <- control_pars[i, "c_social_dist"]
+  c_thresh_int <- control_pars[i, "c_thresh_int"]
+  
+  # surfing rules
+  start_thresh_int <- control_pars[i, "start_thresh_int"] # number of hospitalized cases
+  stop_thresh_int <- control_pars[i, "stop_thresh_int"]   # number of hostpitalized cases
+  
+  source("mk_covid-19_setup.R")
+  
+  # create df of sim pars
+  sim_pars <- replicate(n_sim * sim_length, control_pars[i,], simplify = FALSE) %>% bind_rows()
+  
+  # simulate with a set of parameters
+  sim_list[[i]] <- do.call(
+    pomp::simulate
+    , list(
+      object       = covid
+      , params       = covid_params
+      , nsim         = n_sim
+      , format       = "d"
+      , include.data = F
+      , seed         = 1001)
+  ) %>% cbind(sim_pars)
+  
+}
+
+sim_df <- bind_rows(sim_list)
+rm(sim_list)
+# rename control policies
+sim_df <-
+  sim_df %>%
+  mutate(control_policy = case_when(control_policy == 0 ~ "end social distancing",
+                                    control_policy == 1 ~ "continue social distancing",
+                                    control_policy == 2 ~ "use surfing policy"))
+```
+
+# time series
+
+```{r make_ts_plots}
+# plot total infected and hospitalized
+sample_ids <- base::sample(seq_along(1:n_sim), 10)
+
+reduction_iso_mild <- unique(control_pars$c_iso_mild)
+reduction_intervention <- unique(control_pars$c_social_dist)
+
+ts_plot <- vector("list", length = 6)
+plot_no <- 0
+for(i in seq_along(reduction_intervention)) {
+  for(j in seq_along(reduction_iso_mild)) {
+    if (reduction_iso_mild[j] > reduction_intervention[i]) next
+    plot_no <- plot_no + 1
+    ts_plot[[plot_no]] <-
+      sim_df  %>%
+      filter(.id %in% sample_ids,
+             c_social_dist == reduction_intervention[i],
+             c_iso_mild == reduction_iso_mild[j]) %>%
+      ggplot() +
+      geom_line(aes(x = day, y = Ia + Ip + Is, group = .id), col = "purple", alpha = 0.5) +
+      geom_line(aes(x = day, y = H, group = .id), col = "darkgreen", alpha = 0.5) +
+      geom_point(aes(x = day, y = 0, col = as.factor(thresh_crossed)), 
+                 shape = 22, size = 1, alpha = 0.5) + # show surf policy at bottom
+      scale_color_manual(values = c(NA, "black")) +
+      scale_y_log10() +
+      facet_grid(t_social_dist ~ control_policy) +
+      labs(title = "Epidemic scenarios under alternative management strategies",
+           subtitle = paste("Contact reduction for mild and isolated: ", reduction_iso_mild[j], "\n",
+                            "Contact reduction during intervention: ", reduction_intervention[i], sep = ""),
+           y = "(log10) number of people",
+           x = "days",
+           caption = "purple is total infected and non-hospitalized, green is hospitalized cases") +
+      theme(legend.position = "n")
+    
+  }
+}
+```
+
+
+
+```{r plot_ts, warning = FALSE, eval = TRUE}
+ts_plot[[1]]  
+ts_plot[[2]]  
+ts_plot[[3]]  
+ts_plot[[4]]  
+ts_plot[[5]]  
+ts_plot[[6]]  
+```
+
+# Efficient frontier
+
+```{r}
+summary_df <-
+  sim_df %>%
+  group_by(.id, t_social_dist, control_policy, c_social_dist, c_iso_mild) %>%
+  # mutate() %>%
+  mutate(total_death = last(D, order_by = day),                                      # get cumulative death over simulation
+         pd_surf = ifelse(policy == 2, (thresh_crossed*(S + E + Ia + Ip + R)), 0),   # get daily total ppl under control
+         pd_dist = ifelse(policy == 1, (S + E + Ia + Ip + R), 0)) %>%
+  summarise(total_death = mean(total_death),
+            pd_total = sum(pd_surf) + sum(pd_dist))                                  # add up daily pd over simulation
+
+
+ef_plot <- vector("list", length = 6)
+plot_no <- 0
+for(i in seq_along(reduction_intervention)) {
+  for(j in seq_along(reduction_iso_mild)) {
+     if (reduction_iso_mild[j] > reduction_intervention[i]) next
+    # plot efficient frontiers
+    plot_no <- plot_no + 1
+    ef_plot[[plot_no]] <- summary_df %>%
+       filter(
+             c_social_dist == reduction_intervention[i],
+             c_iso_mild == reduction_iso_mild[j]) %>%
+      ggplot(aes(x = pd_total, y = total_death, col = control_policy)) +
+      geom_point() +
+      scale_x_log10() + 
+      theme(legend.position = "bottom", legend.title = element_blank()) +
+      facet_wrap(~t_social_dist) +
+      labs(title = "Trade-offs between total dead and person-days under social distancing",
+           subtitle = paste("Contact reduction for mild and isolated: ", reduction_iso_mild[j], "\n",
+                            "Contact reduction during intervention: ", reduction_intervention[i], sep = ""),
+           caption = "Person-days calculated for all non-hospitalized and non-symptomatic individuals",
+           y = "total dead",
+           x = "person days under social distancing (log10 scale)")
+    # , caption = "NOTE: Surfing policies cause the outbreak to persist beyond the simulation time,\n 
+    # so the total dead and person-days under social distancing are lower bounds for this policy.")
+    # facet_grid(c_iso_mild ~ c_social_dist)
+  }
+}
+```
+
+```{r ef_plot, eval = TRUE}
+ef_plot[[1]]
+ef_plot[[2]]
+ef_plot[[3]]
+ef_plot[[4]]
+ef_plot[[5]]
+ef_plot[[6]]
+```
+
+
+```{r eval = FALSE}
+susc_plot <- vector("list", length = 6)
+plot_no <- 0
+for(i in seq_along(reduction_intervention)) {
+  for(j in seq_along(reduction_iso_mild)) {
+    if (reduction_iso_mild[j] > reduction_intervention[i]) next
+    plot_no <- plot_no + 1
+    susc_plot[[plot_no]] <-
+      sim_df  %>%
+      filter(.id %in% sample_ids,
+             c_social_dist == reduction_intervention[i],
+             c_iso_mild == reduction_iso_mild[j]) %>%
+      ggplot() +
+      geom_point(aes(x = day, y = 0, col = as.factor(thresh_crossed)), 
+                 shape = 22, size = 1, alpha = 0.5) + # show surf policy at bottom
+      scale_color_manual(values = c(NA, "black")) +
+      geom_line(aes(x = day, y = S, group = .id), col = "purple") +
+      #geom_line(aes(x = day, y = H, group = .id), col = "darkgreen") +
+      scale_y_log10() +
+      facet_grid(t_social_dist ~ control_policy) +
+      labs(title = "Epidemic scenarios under alternative management strategies",
+           subtitle = paste("Contact reduction for mild and isolated: ", reduction_iso_mild[j], "\n",
+                            "Contact reduction during intervention: ", reduction_intervention[i], sep = ""),
+           y = "(log10) number of susceptible people",
+           x = "days",
+           caption = "purple is total infected and non-hospitalized, green is hospitalized cases") +
+      theme(legend.position = "n")
+    
+  }
+}
+susc_plot[[1]]
+susc_plot[[2]]
+susc_plot[[3]]
+susc_plot[[4]]
+susc_plot[[5]]
+susc_plot[[6]]
+```
+
