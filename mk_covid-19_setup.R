@@ -71,6 +71,9 @@ sir_step <- Csnippet("
                      double dHD = dH_all[0];
                      double dHR = dH_all[1];
                      
+                     // update tracking vars
+                     policy = intervention; // 0 = no intervention, 1 = soc dist, 2 = surfing
+
                      // update the compartments
                      S  -= dSE; // susceptible 
                      E  += dSE - dEIa - dEIp; // exposed
@@ -85,9 +88,6 @@ sir_step <- Csnippet("
                      H_new += dIsH;
                      if(intervention == 2 & H >= thresh_H_start) thresh_crossed = 1;
                      else if(intervention == 2 & thresh_crossed == 1 & H < thresh_H_end) thresh_crossed = 0;
-
-                     // update tracking vars
-                     policy = intervention; // 0 = no intervention, 1 = soc dist, 2 = surfing
                      ")
 
 # define the initial set up, currently, every is susceptible except the exposed people
@@ -169,5 +169,6 @@ covid <- dat %>%
                  "Ip","Is","Im",
                  "R", "H","D", 
                  "sympt_new", "H_new",
-                 "thresh_crossed")
+                 "thresh_crossed",
+                 "policy")
   ) 
