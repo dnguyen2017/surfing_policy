@@ -47,14 +47,24 @@ yyg %>%
   select()
 
 yyg %>%
-  filter(date <= Sys.Date()) %>%
+  filter(!is.na(r_values_mean)) %>%
+  #filter(date <= Sys.Date()) %>%
   filter(region != "") %>% # remove blank region (is this national level?)
   ggplot(aes(x = date, y = `r_values_mean`)) +
 #  coord_flip() +
-  geom_line() +
-  geom_hline(aes(yintercept = 1), linetype = "dotted", col = "red") +
+  geom_line(size = 2) +
+  geom_hline(aes(yintercept = 1), linetype = "dashed", col = "red", size = 1) +
   facet_wrap(~region) +
-  theme_minimal()
+  theme_minimal() +
+  ylim(0, 3.75) +
+labs(title = "Estimates of R(t) for US states and territories", 
+       #bquote("Estimates"~"of"~R[t]~"for"~"US"~"states"~"and"~"territories"),
+       caption = "source: Youyang Gu's COVID19 projections \nhttps://github.com/youyanggu/covid19_projections/",
+     y = "R(t)") +
+  theme(text = element_text(size = 16),
+        axis.text=element_text(size=12, colour="black"),
+        axis.title=element_text(size=16)
+        )
 
 str(yyg)
 
