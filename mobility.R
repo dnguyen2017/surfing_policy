@@ -66,8 +66,42 @@ labs(title = "Estimates of R(t) for US states and territories",
         axis.title=element_text(size=16)
         )
 
-str(yyg)
+# state policy actions (complied by Easton White)
+# need to add reopening dates
 
-unique(yyg$r_values_mean)
+actions <- read.csv(url("https://raw.githubusercontent.com/eastonwhite/COVID19_US_States/master/US_states_correlates/States_by_Actions.csv"))
 
-yyg %>% filter(!is.na('r_values_mean')) %>% select(date, `r_values_mean`, region)
+names(actions)[1] <- "sub_region_1"
+actions$sub_region_1 <- state.abb[match(actions$sub_region_1, state.name)]
+
+actions <-
+  actions %>%
+  pivot_longer(cols = c("StateOfEmergency", "LimitGatherings", "ClosePublicSchools", "RestrictBusinesses", "StayAtHome"),
+               names_to = "action",
+               values_to = "date") %>%
+  mutate(date = as.Date(date))
+
+# plot google mobility and dates of state actions
+ggplot() +
+  geom_line(data = filter(gmob,sub_region_1 != ""  # remove national average data
+                                ,sub_region_2 == ""), 
+            aes(x = date, y = percent_change, col = location_type)) +
+  geom_vline(data = actions,
+             aes(xintercept = date, col = action), alpha = 0.5) +
+  # geom_point(data = actions,
+  #            aes(x = date, y = jitter(0, 5), col = action, shape = action)) +
+  facet_wrap(~sub_region_1)
+
+# same as above but without parks usage
+ggplot() +
+  geom_line(data = filter(gmob,
+                          sub_region_1 != ""  # remove national average data
+                          ,!is.na(sub_region_1)
+                          ,sub_region_2 == ""
+                          ,location_type != "parks"), 
+            aes(x = date, y = percent_change, col = location_type)) +
+  geom_vline(data = filter(actions, !is.na(sub_region_1)) ,
+             aes(xintercept = date, col = action), alpha = 0.5) +
+  geom_hline(data = filter(actions, !is.na(sub_region_1)), aes(yintercept = 0), col = "red") +
+  facet_wrap(~sub_region_1) +
+  theme_minimal()
