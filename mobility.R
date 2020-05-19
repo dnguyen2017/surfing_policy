@@ -11,14 +11,15 @@ apple_state <-
   select(-alternative_name) %>% # drop names in native language
   mutate(date = as.Date(date)) %>%
   filter(region %in% state.name) %>% # keep just US state data (should look through city and international data later)
-  mutate(state = state.abb[match(region, state.name)]) %>% # get state name abbreviations
-  select(-region)
+  mutate(region = state.abb[match(region, state.name)]) # get state name abbreviations
+  
   
 ggplot() +
   geom_line(data = apple_state,
             mapping = aes(x = date, y = pct_routing)) +
   geom_hline(data = apple_state, mapping = aes(yintercept = 100), linetype = "dashed", col = "red") +
-  facet_wrap(~state) +
+  geom_vline(data = filter(actions, region != "NA"), mapping = aes(xintercept = date, col = action)) +
+  facet_wrap(~region) +
   labs(title = "Apple routing requests for driving directions",
        y = "Percent of baseline driving requests") +
   theme_minimal()
@@ -36,7 +37,9 @@ apple_us_city <-
   mutate(date = as.Date(date)) %>%
   filter(region %in% corona_cities)
 
-
+# it looks like driving and walking requests track each other fairly well
+# transit is always flat or increases more slowly over time compared to walking and driving
+# so maybe driving requests are a fairly good indication of walking as well
 ggplot() +
   geom_line(data = apple_us_city,
             mapping = aes(x = date, y = pct_routing, col = transportation_type)) +
@@ -85,13 +88,6 @@ ggplot(aes(x = date, y = percent_change, group = location_type, col = location_t
 # Youyang Gu COVID-19 projections and estimates of R_t
 yyg <- read.csv(url("https://raw.githubusercontent.com/youyanggu/covid19_projections/master/projections/combined/latest_us.csv"))
 yyg$date <- as.Date(yyg$date)
-
-
-names(yyg)
-
-yyg %>%
-  filter(region == "WA") %>%
-  select()
 
 yyg %>%
   filter(!is.na(r_values_mean)) %>%
@@ -164,7 +160,7 @@ ggplot() +
   geom_hline(data = filter(actions, !is.na(sub_region_1)),
              aes(yintercept = 1), linetype = "dashed", col = "red", size = 1) +
   geom_vline(data = filter(actions, !is.na(sub_region_1)) ,
-             aes(xintercept = date, col = action), alpha = 0.5) +
+             aes(xintercept = date, col = action)) +
   facet_wrap(~region) +
   theme_minimal() +
   ylim(0, 3.75) +
