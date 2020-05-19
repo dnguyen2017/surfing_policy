@@ -114,17 +114,20 @@ labs(title = "Estimates of R(t) for US states and territories",
 # state policy actions (complied by Easton White)
 # need to add reopening dates
 
-actions <- read.csv(url("https://raw.githubusercontent.com/eastonwhite/COVID19_US_States/master/US_states_correlates/States_by_Actions.csv"))
+actions <- read.csv(url("https://raw.githubusercontent.com/eastonwhite/COVID19_US_States/master/US_states_correlates/States_by_ActionsApr3.csv"))
+write.csv(actions, "mobility_data/States_by_ActionsApr3.csv")
 
 names(actions)[1] <- "sub_region_1"
 actions$sub_region_1 <- state.abb[match(actions$sub_region_1, state.name)]
 
 actions <-
   actions %>%
-  pivot_longer(cols = c("StateOfEmergency", "LimitGatherings", "ClosePublicSchools", "RestrictBusinesses", "StayAtHome"),
+  pivot_longer(cols = c("StateOfEmergency", "LimitGatherings", "ClosePublicSchools", "RestrictBusinesses", "RestrictRestaurants","StayAtHome"),
                names_to = "action",
                values_to = "date") %>%
-  mutate(date = as.Date(date))
+  mutate(date = as.Date(date,"%m/%d/%y"))
+
+filter(actions, action == "StayAtHome") %>% filter(is.na(date))
 
 # plot google mobility and dates of state actions
 ggplot() +
@@ -154,6 +157,24 @@ ggplot() +
        caption = "https://www.google.com/covid19/mobility/\nPolicy start dates from https://github.com/eastonwhite/COVID19_US_States/blob/master/US_states_correlates/States_by_Actions.csv") +
   theme_minimal() +
     theme(legend.position = "top")
+
+# residential use and stay-at-home order only
+ggplot() +
+  geom_line(data = filter(gmob,
+                          sub_region_1 != ""  # remove national average data
+                          ,!is.na(sub_region_1)
+                          ,sub_region_2 == ""
+                          ,location_type == "residential"), 
+            aes(x = date, y = percent_change, col = location_type)) +
+  geom_vline(data = filter(actions, !is.na(sub_region_1), action == "StayAtHome") ,
+             aes(xintercept = date)) +
+  geom_hline(data = filter(actions, !is.na(sub_region_1)), aes(yintercept = 0), col = "red") +
+  facet_wrap(~sub_region_1) +
+  labs(title = "Google location use data",
+       y = "Percent change in use of location",
+       caption = "https://www.google.com/covid19/mobility/\nPolicy start dates from https://github.com/eastonwhite/COVID19_US_States/blob/master/US_states_correlates/States_by_Actions.csv") +
+  theme_minimal() +
+  theme(legend.position = "top")
 
 
 # R(t) with policy dates
