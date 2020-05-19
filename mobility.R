@@ -1,5 +1,52 @@
 library(tidyverse)
 
+# apple trip routing data
+apple <- read_csv("mobility_data/applemobilitytrends-2020-05-17.csv")
+
+apple_state <- 
+  apple %>% 
+  pivot_longer(cols = 5:ncol(apple),
+               names_to = "date",
+               values_to = "pct_routing") %>% 
+  select(-alternative_name) %>% # drop names in native language
+  mutate(date = as.Date(date)) %>%
+  filter(region %in% state.name) %>% # keep just US state data (should look through city and international data later)
+  mutate(state = state.abb[match(region, state.name)]) %>% # get state name abbreviations
+  select(-region)
+  
+ggplot() +
+  geom_line(data = apple_state,
+            mapping = aes(x = date, y = pct_routing)) +
+  geom_hline(data = apple_state, mapping = aes(yintercept = 100), linetype = "dashed", col = "red") +
+  facet_wrap(~state) +
+  labs(title = "Apple routing requests for driving directions",
+       y = "Percent of baseline driving requests") +
+  theme_minimal()
+
+
+# city level apple routing data
+corona_cities <- c("New York City", "San Francisco - Bay Area", "Chicago", "Seattle", "Boston", "Atlanta", "New Orleans", 
+                   "Detroit", "Miami", "Dallas", "Washington DC", "Houston")
+apple_us_city <- 
+  apple %>% 
+  pivot_longer(cols = 5:ncol(apple),
+               names_to = "date",
+               values_to = "pct_routing") %>% 
+  select(-alternative_name) %>% # drop names in native language
+  mutate(date = as.Date(date)) %>%
+  filter(region %in% corona_cities)
+
+
+ggplot() +
+  geom_line(data = apple_us_city,
+            mapping = aes(x = date, y = pct_routing, col = transportation_type)) +
+  geom_hline(data = apple_state, mapping = aes(yintercept = 100), linetype = "dashed", col = "red") +
+  facet_wrap(~region) +
+  labs(title = "Apple routing requests for driving directions",
+       y = "Percent of baseline driving requests") +
+  theme_minimal()
+
+
 # google mobility data
 
 gmob_global <- read.csv(url("https://www.gstatic.com/covid19/mobility/Global_Mobility_Report.csv"))
