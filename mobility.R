@@ -22,7 +22,8 @@ ggplot() +
   facet_wrap(~region) +
   labs(title = "Apple routing requests for driving directions",
        y = "Percent of baseline driving requests") +
-  theme_minimal()
+  theme_minimal() +
+  theme(legend.position = "top")
 
 
 # city level apple routing data
@@ -43,11 +44,12 @@ apple_us_city <-
 ggplot() +
   geom_line(data = apple_us_city,
             mapping = aes(x = date, y = pct_routing, col = transportation_type)) +
-  geom_hline(data = apple_state, mapping = aes(yintercept = 100), linetype = "dashed", col = "red") +
+  geom_hline(data = apple_us_city, mapping = aes(yintercept = 100), linetype = "dashed", col = "red") +
   facet_wrap(~region) +
-  labs(title = "Apple routing requests for driving directions",
+  labs(title = "Apple routing requests for driving directions in select US cities",
        y = "Percent of baseline driving requests") +
-  theme_minimal()
+  theme_minimal() +
+  theme(legend.position = "top")
 
 
 # google mobility data
@@ -147,7 +149,11 @@ ggplot() +
              aes(xintercept = date, col = action), alpha = 0.5) +
   geom_hline(data = filter(actions, !is.na(sub_region_1)), aes(yintercept = 0), col = "red") +
   facet_wrap(~sub_region_1) +
-  theme_minimal()
+  labs(title = "Google location use data",
+       y = "Percent change in use of location",
+       caption = "https://www.google.com/covid19/mobility/\nPolicy start dates from https://github.com/eastonwhite/COVID19_US_States/blob/master/US_states_correlates/States_by_Actions.csv") +
+  theme_minimal() +
+    theme(legend.position = "top")
 
 
 # R(t) with policy dates
@@ -166,8 +172,9 @@ ggplot() +
   ylim(0, 3.75) +
   labs(title = "Estimates of R(t) for US states and territories", 
        #bquote("Estimates"~"of"~R[t]~"for"~"US"~"states"~"and"~"territories"),
-       caption = "source: Youyang Gu's COVID19 projections \nhttps://github.com/youyanggu/covid19_projections/",
+       caption = "R(t) estimates from https://github.com/youyanggu/covid19_projections/\nPolicy start dates from https://github.com/eastonwhite/COVID19_US_States/blob/master/US_states_correlates/States_by_Actions.csv",
        y = "R(t)") +
   theme(text = element_text(size = 16),
         axis.text=element_text(size=12, colour="black"),
-        axis.title=element_text(size=16))
+        axis.title=element_text(size=16),
+        legend.position = "top")
