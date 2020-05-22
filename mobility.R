@@ -51,6 +51,15 @@ ggplot() +
   theme_minimal() +
   theme(legend.position = "top")
 
+# is the spike in New Orleans because of Mardi Gras?
+# Hm, it happens *right* before it. Not sure what that means.
+ggplot() +
+  geom_line(data = filter(apple_us_city, region == "New Orleans"),
+            mapping = aes(x = date, y = pct_routing, col = transportation_type)) +
+  geom_hline(data =  filter(apple_us_city, region == "New Orleans"), mapping = aes(yintercept = 100), linetype = "dashed", col = "red") +
+  geom_vline(data =  filter(apple_us_city, region == "New Orleans"), 
+             mapping = aes(xintercept = as.Date("2020-02-25") )) +
+  facet_wrap(~region)
 
 # google mobility data
 
@@ -176,6 +185,59 @@ ggplot() +
   theme_minimal() +
   theme(legend.position = "top")
 
+# recreational use and stay at home orders
+ggplot() +
+  geom_line(data = filter(gmob,
+                          sub_region_1 != ""  # remove national average data
+                          ,!is.na(sub_region_1)
+                          ,sub_region_2 == ""
+                          ,location_type == "retail_and_recreation"), 
+            aes(x = date, y = percent_change, col = location_type)) +
+  geom_vline(data = filter(actions, !is.na(sub_region_1), action == "StayAtHome") ,
+             aes(xintercept = date)) +
+  geom_hline(data = filter(actions, !is.na(sub_region_1)), aes(yintercept = 0), col = "red") +
+  facet_wrap(~sub_region_1) +
+  labs(title = "Google location use data",
+       y = "Percent change in use of location",
+       caption = "https://www.google.com/covid19/mobility/\nPolicy start dates from https://github.com/eastonwhite/COVID19_US_States/blob/master/US_states_correlates/States_by_Actions.csv") +
+  theme_minimal() +
+  theme(legend.position = "top")
+
+# workplace use and stay at home orders
+ggplot() +
+  geom_line(data = filter(gmob,
+                          sub_region_1 != ""  # remove national average data
+                          ,!is.na(sub_region_1)
+                          ,sub_region_2 == ""
+                          ,location_type == "workplaces"), 
+            aes(x = date, y = percent_change, col = location_type)) +
+  geom_vline(data = filter(actions, !is.na(sub_region_1), action == "StayAtHome") ,
+             aes(xintercept = date)) +
+  geom_hline(data = filter(actions, !is.na(sub_region_1)), aes(yintercept = 0), col = "red") +
+  facet_wrap(~sub_region_1) +
+  labs(title = "Google location use data",
+       y = "Percent change in use of location",
+       caption = "https://www.google.com/covid19/mobility/\nPolicy start dates from https://github.com/eastonwhite/COVID19_US_States/blob/master/US_states_correlates/States_by_Actions.csv") +
+  theme_minimal() +
+  theme(legend.position = "top")
+
+# recreation and workplace 
+ggplot() +
+  geom_line(data = filter(gmob,
+                          sub_region_1 != ""  # remove national average data
+                          ,!is.na(sub_region_1)
+                          ,sub_region_2 == ""
+                          ,location_type %in% c("residential", "workplaces", "retail_and_recreation")), 
+            aes(x = date, y = percent_change, col = location_type)) +
+  geom_vline(data = filter(actions, !is.na(sub_region_1), action == "StayAtHome") ,
+             aes(xintercept = date)) +
+  geom_hline(data = filter(actions, !is.na(sub_region_1)), aes(yintercept = 0), col = "red") +
+  facet_wrap(~sub_region_1) +
+  labs(title = "Google location use data",
+       y = "Percent change in use of location",
+       caption = "https://www.google.com/covid19/mobility/\nPolicy start dates from https://github.com/eastonwhite/COVID19_US_States/blob/master/US_states_correlates/States_by_Actions.csv") +
+  theme_minimal() +
+  theme(legend.position = "top")
 
 # R(t) with policy dates
 actions$region <- actions$sub_region_1
@@ -195,7 +257,30 @@ ggplot() +
        #bquote("Estimates"~"of"~R[t]~"for"~"US"~"states"~"and"~"territories"),
        caption = "R(t) estimates from https://github.com/youyanggu/covid19_projections/\nPolicy start dates from https://github.com/eastonwhite/COVID19_US_States/blob/master/US_states_correlates/States_by_Actions.csv",
        y = "R(t)") +
-  theme(text = element_text(size = 16),
-        axis.text=element_text(size=12, colour="black"),
-        axis.title=element_text(size=16),
+  theme(#text = element_text(size = 16),
+        #axis.text=element_text(size=12, colour="black"),
+        #axis.title=element_text(size=16),
         legend.position = "top")
+
+# rt.live estimates
+rtlive <- read.csv(url("https://d14wlfuexuxgcm.cloudfront.net/covid/rt.csv"))
+rtlive$date <- as.Date(rtlive$date)
+
+ggplot() +
+  geom_line(data = rtlive, mapping = aes(x = date, y = mean)) +
+  geom_ribbon(data = rtlive, mapping = aes(x = date, ymin = lower_90, ymax = upper_90), alpha = 0.5) +
+  geom_hline(data = filter(actions, !is.na(region)) ,
+            mapping = aes(yintercept = 1),col = "red") +
+  geom_vline(data = filter(actions, !is.na(region), action == "StayAtHome") ,
+             aes(xintercept = date)) +
+  # geom_vline(data = filter(actions, !is.na(region), action == "StayAtHome") ,
+  #           aes(xintercept = date)) +
+  facet_wrap(~region) +
+  labs(title = "R(t) estimates from rt.live",
+       y = "R(t)(90 % CI)",
+       caption = "source: https://d14wlfuexuxgcm.cloudfront.net/covid/rt.csv")
+
+# National Assoc of Counties COVID-19 policy data set
+naco <- read.csv(url("https://ce.naco.org/app/COVID-19/County_Declaration_and_Policies.csv"))
+names(naco)
+View(naco)
