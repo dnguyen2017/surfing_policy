@@ -1,0 +1,43 @@
+---
+title: "epidemic branching processes"
+author: "David Nguyen"
+date: "May 30, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+```{r branching_model}
+episim <- function (t, i_0, r0, disp, cont) {
+  
+  # initialize data frame
+  out <- tibble("time" = t
+                , "R0_true" = r0
+                , "disp_true" = disp
+                , "control" = cont
+                , "infected" = i_0
+  )
+  
+  # branching process simulations
+  for (i in 2:length(t)) {
+    out[i, "infected"] <- sum(rnbinom(n = unlist(out[i-1, "infected"]), # number infected in previous time step
+                                      mu = (1 - unlist(out[i-1, "control"]))  * unlist(out[i-1, "R0_true"]), # (controlled) R
+                                      size = unlist(out[i-1, "disp_true"]))) # dispersion
+  }
+  return(out)
+}
+
+# set params and init conds
+t <- 1:10
+r0 <- c(rep(2, 5), rep(0.9, 5))
+disp <- 0.16 # sars-like dispersion
+i_0 <- 10
+cont <- 0
+
+# simulate a single realization
+episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont)
+
+```
