@@ -6,9 +6,23 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 ```
+
+# Problem
+How can we detect when the effective reproduction number is low enough to start lifting shelter-in-place orders? One (of many) indicators that has been proposed in many SARS-CoV-2 reopening plans is a 14 day decrease in reported cases. This necessary condition for reopening was chosen based on the premise that few exposed individuals become infectious after 14 days (Lauer et al. (2020) estimated that the 97.5 percentile of the incubation period distribution is 11.5 days (CI, 8.2 to 15.6 days)). However, the statistical justification for this rule is unclear. As a decision rule, the performance of the 14-day decline in cases rule is unknown and there may exist more powerful decision rules. 
+
+In this proposal I outline an approach to apply tools from sequential analysis to create statistically justified decision rules for guiding reopening decisions and compare the performance of these rules with the heuristically chosen 14-day rule.
+<!-- For instance, what is the false detection rate of this rule? Given that an outbreak is sufficiently controlled to begin reopening, how many days will it take for -->
+
+# Model
+A reasonable model for the initial phase of an outbreak (before susceptibles have become depleted) is: 
+$$ Z_i \sim NB(R(t), k)$$
+where $Z_i$ is the number of secondary cases produced by the $i$-th infected individual which follows a negative binomial distribtuion with mean $R(t)$ and dispersion $k$. Epidemiologically, $R(t)$ is the time-specific effective reproductive number, and $k$ represents variability in infectiousness among individuals (Lloyd-Smith et al. 2005). At the population level, the model is defined (need to figure out how to write sum of neg bin under the mean-disp parameterization)
+
+$$ I(t+1) ~ NB(\Sigma^{I(t)}_{i=1})  $$
+
 
 ```{r branching_model}
 episim <- function (t, i_0, r0, disp, cont) {
