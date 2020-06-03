@@ -11,20 +11,32 @@ library(tidyverse)
 ```
 
 # Problem
-How can we detect when the effective reproduction number is low enough to start lifting shelter-in-place orders? One (of many) indicators that has been proposed in many SARS-CoV-2 reopening plans is a 14 day decrease in reported cases. This necessary condition for reopening was chosen based on the premise that few exposed individuals become infectious after 14 days (Lauer et al. (2020) estimated that the 97.5 percentile of the incubation period distribution is 11.5 days (CI, 8.2 to 15.6 days)). However, the statistical justification for this rule is unclear. As a decision rule, the performance of the 14-day decline in cases rule is unknown and there may exist more powerful decision rules. 
 
-In this proposal I outline an approach to apply tools from sequential analysis to create statistically justified decision rules for guiding reopening decisions and compare the performance of these rules with the heuristically chosen 14-day rule.
+<!-- focus on the epidemiology and translate that into the relevant acceptance and rejection regions for re-opening. Don't worry too much about translating proposed re-opening guidelines into a hypothesis testing problem. It is enough to point out that they are trying to satisfy some objectives (NY has a very specific and concise list of objectives) -->
+
+To safely determine when to lift COVID-19 lockdowns decision makers must know if the outbreak is sufficiently controlled and if there is adequate test and trace capacity to prevent a resurgence of cases following re-opening. To support this need, re-opening rules and guidelines have been proposed by policy, government, and academic entities (ex. AEI, pandemic preparedness, white house, new york state, harvard). A common indicator that has been proposed in SARS-CoV-2 reopening plans to determine if an outbreak is sufficiently controlled is a 14 day decrease in reported cases. This criterion was initially proposed in the American Enterprise Institute national reopening plan (Gottleib et al. 2020) and was chosen based on the premise that decreasing cases implies that the outbreak is sufficiently controlled and the 14-day duration was chosen because most exposed individuals become infectious within 14 days (Lauer et al. 2020). To determine if there is adequate test and trace capacity some guidelines have proposed thresholds for the number of tests and contact tracers that are needed by population size, e.g.,  
+<!-- estimated that the 97.5 percentile of the incubation period distribution is 11.5 days (CI, 8.2 to 15.6 days)) -->
+However, the statistical justification for this rule is unclear and the hypothesis that the rule tests is imprecise. In this proposal I will 1. precisely identify the parameter region for which an epidemic is considered controlled A good decision rule should minimize the time needed to determine that the The performance of the 14-day decline in cases as a decision rule is unknown and there may exist more powerful decision rules. 
+
+In this proposal I outline an approach to apply tools from sequential analysis to create statistically justified decision rules for guiding COVID-19 reopening decisions and will compare the performance of these rules with the heuristically chosen 14-day rule. 
 <!-- For instance, what is the false detection rate of this rule? Given that an outbreak is sufficiently controlled to begin reopening, how many days will it take for -->
 
 # Model
-A reasonable model for the initial phase of an outbreak (before susceptibles have become depleted) is: 
-$$ Z_i \sim NB(R(t), k)$$
-where $Z_i$ is the number of secondary cases produced by the $i$-th infected individual which follows a negative binomial distribtuion with mean $R(t)$ and dispersion $k$. Epidemiologically, $R(t)$ is the time-specific effective reproductive number, and $k$ represents variability in infectiousness among individuals (Lloyd-Smith et al. 2005). At the population level, the model is defined (need to figure out how to write sum of neg bin under the mean-disp parameterization)
+A reasonable model for the initial phase of an outbreak (i.e. ignoring the depletion of susceptibles) is: 
 
-$$ I(t+1) ~ NB(\Sigma^{I(t)}_{i=1})  $$
+\begin{align*}
+X_i & \sim NB(R(t), k)
+\end{align*}
+
+where $X_i$ is the number of secondary cases produced by the $i$-th infected individual which follows a negative binomial distribution with mean $R(t)$ and dispersion $k$. Epidemiologically, $R(t)$ is the time-specific mean number of infections caused by an infectious individual and $k$ represents variability in infectiousness among individuals (Lloyd-Smith et al. 2005). Here, $R(t)$ is a function of the time-varying control $c(t)$ which is the proportional reduction in transmission under an active lock-down policy and $R_0$ the expected number of infections caused by an infectious individual in the absence of control measures in a fully-susceptible population. Under the assumption that all $X_i$ are independent and identically distributed (iid) the total number of secondary infections is given by
+<!-- (need to figure out how to write sum of neg bin under the mean-disp parameterization) -->
+
+$$ X(t+\Delta) \sim \Sigma^{I(t)}_{i=1}X_i  $$
+where $\Delta$ is chosen here to be the incubation period, 14 days (not sure about validity of this assumption).
 
 
-```{r branching_model}
+
+```{r branching_model, eval = FALSE}
 episim <- function (t, i_0, r0, disp, cont) {
   
   # initialize data frame
@@ -55,3 +67,25 @@ cont <- 0
 episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont)
 
 ```
+
+
+Making a slight modification to Phatarfod (1965) to allow for composite hypothesis testing let 
+
+\begin{align*}
+Z_0 &= \log \left( \frac{p(x_0 | \theta \leq \theta_0 )}{p(x_0 | \theta > \theta_0)} \right) \\
+Z_r &= \log \left( \frac{p(x_r | x_{r-1}, \theta \leq \theta_0 )}{p(x_r | x_{r-1}, \theta > \theta_0)}\right), r \geq 1 \\
+\end{align*}
+
+then the sequential probability ratio test (SPRT) for the composite hypothesis test $H_0: \theta > \theta_0 \text{ against } H_1: \theta \leq \theta_0$ is
+
+\begin{align*}
+\phi(x_n) = 
+    \begin{cases}
+      \text{reject } H_0  & \Sigma^{n}_{0} Z_r > \log(A)\\
+      \text{accept } H_0 & \Sigma^{n}_{0} Z_r \leq \log(B)
+    \end{cases}
+\end{align*}
+
+The thresholds are set following Wald's method $A \sim \frac{1-\beta}{\alpha}$ and $B \sim \frac{\beta}{1-\alpha}$ where $\alpha$ and $\beta$ is the probabilities of type I and II error, respectively.
+
+In our case, the parameter ($\theta$) of interest is $R(t)$.
