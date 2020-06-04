@@ -14,9 +14,16 @@ library(tidyverse)
 
 <!-- focus on the epidemiology and translate that into the relevant acceptance and rejection regions for re-opening. Don't worry too much about translating proposed re-opening guidelines into a hypothesis testing problem. It is enough to point out that they are trying to satisfy some objectives (NY has a very specific and concise list of objectives) -->
 
-To safely determine when to lift COVID-19 lockdowns decision makers must know if the outbreak is sufficiently controlled and if there is adequate test and trace capacity to prevent a resurgence of cases following re-opening. To support this need, re-opening rules and guidelines have been proposed by policy, government, and academic entities (ex. AEI, pandemic preparedness, white house, new york state, harvard). A common indicator that has been proposed in SARS-CoV-2 reopening plans to determine if an outbreak is sufficiently controlled is a 14 day decrease in reported cases. This criterion was initially proposed in the American Enterprise Institute national reopening plan (Gottleib et al. 2020) and was chosen based on the premise that decreasing cases implies that the outbreak is sufficiently controlled and the 14-day duration was chosen because most exposed individuals become infectious within 14 days (Lauer et al. 2020). To determine if there is adequate test and trace capacity some guidelines have proposed thresholds for the number of tests and contact tracers that are needed by population size, e.g.,  
+To safely determine when to lift COVID-19 lockdowns decision makers must know if the outbreak is sufficiently controlled and if there is adequate test and trace capacity to prevent a resurgence of cases following reopening. To support this need, criteria for that must be satisfied before reopoening have been proposed by policy, government, and academic entities (ex. AEI, pandemic preparedness, white house, new york state, harvard). A common criterion among reopening guidelines to determine if an outbreak is sufficiently controlled is a 14 day decrease in reported cases. This criterion was initially proposed in the American Enterprise Institute national reopening plan (Gottleib et al. 2020, page 3), possibly based on the reasoning that decreasing cases implies that the outbreak is controlled and the 14-day duration was chosen because most exposed individuals become infectious within 14 days (Lauer et al. 2020). To determine if there is adequate test and trace capacity some guidelines have proposed thresholds for the number of tests and contact tracers that are needed by population, e.g.,  a weekly average of 30 tests per 1,000 residents and 30 contact tracers per 100,000 residents (NY Forward 2020). These criteria and others are tests of the hypothesis that it unsafe (null) or safe (alternative) to reopen from lockdown. However, it is unclear what rejection region is implied by these tests, the performance of these hypothesis tests, or how they may compare to alternative tests. Consequently, it is unclear how statistically or epidemiologically justifiable these proposed reopening critera are. 
 <!-- estimated that the 97.5 percentile of the incubation period distribution is 11.5 days (CI, 8.2 to 15.6 days)) -->
-However, the statistical justification for this rule is unclear and the hypothesis that the rule tests is imprecise. In this proposal I will 1. precisely identify the parameter region for which an epidemic is considered controlled A good decision rule should minimize the time needed to determine that the The performance of the 14-day decline in cases as a decision rule is unknown and there may exist more powerful decision rules. 
+
+In this proposal I will approach the problem of identifying when it is safe to phase out of lockdowns by developing epidemiologically justifiable hypothesis tests. 
+
+1. precisely identify the parameter region for which an epidemic is controlled enough to begin reopening
+2. develop a simple hypothesis test for identifying when a local epidemic is sufficiently controlled
+3. evaluate the performance of this hypothesis test and compare it the 14-day criteria proposed in reopening plans
+
+A good decision rule should minimize the time needed to determine that the The performance of the 14-day decline in cases as a decision rule is unknown and there may exist more powerful decision rules. 
 
 In this proposal I outline an approach to apply tools from sequential analysis to create statistically justified decision rules for guiding COVID-19 reopening decisions and will compare the performance of these rules with the heuristically chosen 14-day rule. 
 <!-- For instance, what is the false detection rate of this rule? Given that an outbreak is sufficiently controlled to begin reopening, how many days will it take for -->
@@ -31,10 +38,19 @@ X_i & \sim NB(R(t), k)
 where $X_i$ is the number of secondary cases produced by the $i$-th infected individual which follows a negative binomial distribution with mean $R(t)$ and dispersion $k$. Epidemiologically, $R(t)$ is the time-specific mean number of infections caused by an infectious individual and $k$ represents variability in infectiousness among individuals (Lloyd-Smith et al. 2005). Here, $R(t)$ is a function of the time-varying control $c(t)$ which is the proportional reduction in transmission under an active lock-down policy and $R_0$ the expected number of infections caused by an infectious individual in the absence of control measures in a fully-susceptible population. Under the assumption that all $X_i$ are independent and identically distributed (iid) the total number of secondary infections is given by
 <!-- (need to figure out how to write sum of neg bin under the mean-disp parameterization) -->
 
-$$ X(t+\Delta) \sim \Sigma^{I(t)}_{i=1}X_i  $$
-where $\Delta$ is chosen here to be the incubation period, 14 days (not sure about validity of this assumption).
+\begin{align*}
+X_{t+1} & \sim \Sigma^{X_t}_{i=1}X_i \\
+            & \sim NB(R_0, \Sigma^{X_t}_{i=1} k) \text{     (I think this is correct)}
+\end{align*}
 
+```{r check_dist, echo = TRUE}
+tibble(x = replicate(5, sum(rnbinom(n = 10, mu = 2, size = 0.16))),
+       y = replicate(5, rnbinom(n = 1, mu = 2, size = 10 * 0.16)) )
+```
 
+Nevermind, it is absolutely not the case that $X_{t+1} \sim NB(R_0, \Sigma^{X_t}_{i=1} k)$
+
+where the step size is chosen here to be the incubation period, 14 days (not sure how reasonable this is). 
 
 ```{r branching_model, eval = FALSE}
 episim <- function (t, i_0, r0, disp, cont) {
@@ -57,14 +73,43 @@ episim <- function (t, i_0, r0, disp, cont) {
 }
 
 # set params and init conds
-t <- 1:10
-r0 <- c(rep(2, 5), rep(0.9, 5))
+t <- 1:20
+r0 <- c(rep(2, 10), rep(0.9, 10))
 disp <- 0.16 # sars-like dispersion
 i_0 <- 10
 cont <- 0
 
 # simulate a single realization
-episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont)
+outbreak <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont)
+
+```
+
+```{r likelihood, eval = FALSE}
+# if it is true that for X_i ~ NB(mu, k) iid that sum(X_i) ~ NB(mu, sum(k)) then the P( x_{t+1} | x_t, theta ) is 
+# dnbinom(x = x_now, mu = r0, size = x_prev*disp) because the X_i are iid
+outbreak
+r_h0 <- seq(1, 2, by = 0.1)
+r_h1 <- seq(0, 1, by = 0.1)
+
+obj_fn <- function(pars, input, dispersion) {
+  dnbinom(x = input, mu = pars, size = size)
+}
+
+replicate(5, rnbinom(n = 1, mu = 2, size = 0.16))
+
+optim(par = c(1), obj_fn(input = , dispersion = 0.16))
+
+outbreak$like_h0 <- NA
+outbreak$like_h1 <- NA
+
+# want to find mle in parameter space of h0 and h1
+# not currently right
+for ( i in 2:nrow(outbreak)) {
+   dnbinom(x = unlist(outbreak[i, "infected"]),
+          mu = r_h0,
+          size = unlist(outbreak[i, "disp_true"]))
+}
+
 
 ```
 
