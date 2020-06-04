@@ -65,7 +65,7 @@ ggplot(test) +
   labs(title = "compare distributions")
 ```
 
-```{r branching_model, eval = FALSE}
+```{r branching_model, echo = TRUE}
 episim <- function (t, i_0, r0, disp, cont, nsim) {
   
   # init list to store each simulation
@@ -93,18 +93,37 @@ episim <- function (t, i_0, r0, disp, cont, nsim) {
 
 # set params and init conds
 t <- 1:20
-r0 <- c(rep(2, 10), rep(0.9, 10))
+r0 <- c(rep(2, 10), rep(0.9, 10)) # lockdown starts at t = 11
 disp <- 0.16 # sars-like dispersion
 i_0 <- 10
 cont <- 0
-n <- 10
+n <- 100
 
 # simulate
 outbreak <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont, nsim = n)
-
-#
 ```
 
+Here are some example simulations of this model. Control is implemented at the 11^th^ time step.
+
+```{r plot_example_branching_proc, out.width = "50%", fig.show = 'hold'}
+# Plot simulations
+ggplot(outbreak, aes(x = time, y = infected, group = simulation, col = as.factor(simulation) )) +
+  geom_line(alpha = 0.7) +
+  scale_y_log10() +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(title = "Epidemic trajectories"
+       , y = "log10(infected)"
+       , x = "incubation periods")
+
+outbreak %>% group_by(simulation) %>% summarize(total_infected = sum(infected)) %>% 
+ggplot() +
+  geom_density(aes(x = total_infected) )+
+  scale_x_log10() +
+  labs(title = "Outbreak size distribution" 
+         ,x = "log10(total infected)")
+
+```
 
 
 ### Define acceptance and rejection region
