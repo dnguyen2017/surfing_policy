@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 ```
 
-# Problem
+# Motivation
 
 <!-- focus on the epidemiology and translate that into the relevant acceptance and rejection regions for re-opening. Don't worry too much about translating proposed re-opening guidelines into a hypothesis testing problem. It is enough to point out that they are trying to satisfy some objectives (NY has a very specific and concise list of objectives) -->
 
@@ -19,36 +19,48 @@ To safely determine when to lift COVID-19 lockdowns decision makers must know if
 
 In this proposal I will approach the problem of identifying when it is safe to phase out of lockdowns by developing epidemiologically justifiable hypothesis tests. 
 
-1. precisely identify the parameter region for which an epidemic is controlled enough to begin reopening
-2. develop a simple hypothesis test for identifying when a local epidemic is sufficiently controlled
-3. evaluate the performance of this hypothesis test and compare it the 14-day criteria proposed in reopening plans
+<!-- 1. precisely identify the parameter region for which an epidemic is controlled enough to begin reopening -->
+<!-- 2. develop a simple hypothesis test for identifying when a local epidemic is sufficiently controlled -->
+<!-- 3. evaluate the performance of this hypothesis test and compare it the 14-day criteria proposed in reopening plans -->
 
-A good decision rule should minimize the time needed to determine that the The performance of the 14-day decline in cases as a decision rule is unknown and there may exist more powerful decision rules. 
+<!-- A good decision rule should minimize the time needed to determine that the The performance of the 14-day decline in cases as a decision rule is unknown and there may exist more powerful decision rules.  -->
 
-In this proposal I outline an approach to apply tools from sequential analysis to create statistically justified decision rules for guiding COVID-19 reopening decisions and will compare the performance of these rules with the heuristically chosen 14-day rule. 
+<!-- In this proposal I outline an approach to apply tools from sequential analysis to create statistically justified decision rules for guiding COVID-19 reopening decisions and will compare the performance of these rules with the heuristically chosen 14-day rule.  -->
 <!-- For instance, what is the false detection rate of this rule? Given that an outbreak is sufficiently controlled to begin reopening, how many days will it take for -->
 
-# Model
+# Problem
+
+Let $\theta \in \Theta$ be parameter that determines the evolution of an epidemic and let $\Theta_0$ be the set of parameters for which lockdown is necessary (acceptance region) and $\Theta_1$ be the set of parameters for which lockdown may be phased out (rejection region). The decision maker sequentially observes a stream of data $x_0, x_1, x_2,\ldots$ from the outbreak and must decide if the unsafe to reopen ($\theta \in \Theta_0$) or if it is safe to open ($\theta \in \Theta_1$). We seek to develop a sequential hypothesis test ($\phi(X_n)$) with a controlled type I error rate ($\alpha$)  to make this decision (i.e., $P(\text{reject } H_0 | \theta \in \Theta_0) \leq \alpha$). To solve this problem we must first define a model which describes the time-evolution of the outbreak, define the acceptance and rejection regions, construct a hypothesis tests.
+
+### Model
 A reasonable model for the initial phase of an outbreak (i.e. ignoring the depletion of susceptibles) is: 
 
 \begin{align*}
-X_i & \sim NB(R(t), k)
+Z_i & \sim NB(R(t), k)
 \end{align*}
 
-where $X_i$ is the number of secondary cases produced by the $i$-th infected individual which follows a negative binomial distribution with mean $R(t)$ and dispersion $k$. Epidemiologically, $R(t)$ is the time-specific mean number of infections caused by an infectious individual and $k$ represents variability in infectiousness among individuals (Lloyd-Smith et al. 2005). Here, $R(t)$ is a function of the time-varying control $c(t)$ which is the proportional reduction in transmission under an active lock-down policy and $R_0$ the expected number of infections caused by an infectious individual in the absence of control measures in a fully-susceptible population. Under the assumption that all $X_i$ are independent and identically distributed (iid) the total number of secondary infections is given by
+where $Z_i$ is the number of secondary cases produced by the $i$-th infected individual which follows a negative binomial distribution with mean $R(t)$ and dispersion $k$. Epidemiologically, $R(t)$ is the time-specific mean number of infections caused by an infectious individual and $k$ represents variability in infectiousness among individuals (Lloyd-Smith et al. 2005). Under the assumption that all $X_i$ are independent and identically distributed (iid) the total number of secondary infections is given by
 <!-- (need to figure out how to write sum of neg bin under the mean-disp parameterization) -->
 
 \begin{align*}
-X_{t+1} & \sim \Sigma^{X_t}_{i=1}X_i \\
-            & \sim NB(R_0, \Sigma^{X_t}_{i=1} k) \text{     (I think this is correct)}
+X_{t+1} & \sim \Sigma^{Z_t}_{i=1}X_i \\
+            & \sim NB(\Sigma^{X_t}_{i=1} R_0, \Sigma^{X_t}_{i=1} k) \text{     (I think this is correct. still need to prove)}
 \end{align*}
 
 ```{r check_dist, echo = TRUE}
-tibble(x = replicate(5, sum(rnbinom(n = 10, mu = 2, size = 0.16))),
-       y = replicate(5, rnbinom(n = 1, mu = 2, size = 10 * 0.16)) )
-```
+# numerically test claim that the previous two distributions are the same
+test <- tibble("sum(X_i)" = replicate(10000, sum(rnbinom(n = 10, mu = 2, size = 0.16))),
+       "NB(r0*x_t,k*x_t)" = replicate(10000, rnbinom(n = 1, mu = 10 * 2, size = 10 * 0.16)) ) %>%
+  pivot_longer(cols = 1:2,
+               names_to = "distribution",
+               values_to = "output")
+# ggplot(test) +
+#   geom_density(aes(output, fill = distribution), alpha = 0.5)
 
-Nevermind, it is absolutely not the case that $X_{t+1} \sim NB(R_0, \Sigma^{X_t}_{i=1} k)$
+ggplot(test) +
+  stat_ecdf(aes(x = output, col = distribution)) +
+  labs(title = "compare distributions")
+```
 
 where the step size is chosen here to be the incubation period, 14 days (not sure how reasonable this is). 
 
@@ -84,6 +96,13 @@ outbreak <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont)
 
 ```
 
+### Define acceptance and rejection region
+*Under construction*
+To define the regions of parameter space for which it is safe ($\Theta_0$) or unsafe ($\Theta_1$) to phase out of lockdowns we must consider the effects of control on the outbreak. The branching process model can be modified to include the effects of population-level control (lockdown) and individual-level control (test and trace + isolation and quarantine).
+
+
+
+
 ```{r likelihood, eval = FALSE}
 # if it is true that for X_i ~ NB(mu, k) iid that sum(X_i) ~ NB(mu, sum(k)) then the P( x_{t+1} | x_t, theta ) is 
 # dnbinom(x = x_now, mu = r0, size = x_prev*disp) because the X_i are iid
@@ -113,7 +132,7 @@ for ( i in 2:nrow(outbreak)) {
 
 ```
 
-
+### Construct hypothesis test
 Making a slight modification to Phatarfod (1965) to allow for composite hypothesis testing let 
 
 \begin{align*}
