@@ -15,7 +15,7 @@ library(tidyverse)
 
 <!-- focus on the epidemiology and translate that into the relevant acceptance and rejection regions for re-opening. Don't worry too much about translating proposed re-opening guidelines into a hypothesis testing problem. It is enough to point out that they are trying to satisfy some objectives (NY has a very specific and concise list of objectives) -->
 
-To safely determine when to lift COVID-19 lockdowns decision makers must know if the outbreak is sufficiently controlled and if there is adequate test and trace capacity to prevent a resurgence of cases following reopening. To support this need, criteria that should be satisfied to ensure it is safe to reopen have been proposed by policy, government, and academic entities [ex. @gottlieb_national_2020; @prevent_epidemics_adaptive_2020; @white_house_opening_2020; harvard]. A common criterion among reopening guidelines to determine if an outbreak is sufficiently controlled is a 14 day decrease in reported cases. This criterion was initially proposed in the American Enterprise Institute national reopening plan [page 3 @gottlieb_national_2020], possibly based on the reasoning that decreasing cases implies that the outbreak is controlled and the 14-day duration was chosen because most exposed individuals become infectious within 14 days [@lauer_incubation_2020]. To determine if there is adequate test and trace capacity some guidelines have proposed thresholds for the number of tests and contact tracers that are needed by population, e.g.,  a weekly average of 30 tests per 1,000 residents and 30 contact tracers per 100,000 residents ([NY Forward 2020](https://www.governor.ny.gov/sites/governor.ny.gov/files/atoms/files/NYForwardReopeningGuide.pdf)). These criteria and others are tests of the hypothesis that it unsafe (null) or safe (alternative) to reopen from lockdown. However, it is unclear what rejection region is implied by these tests, the performance of these hypothesis tests, or how they may compare to alternative tests. Consequently, it is unclear how statistically or epidemiologically justifiable these proposed reopening critera are. 
+To safely determine when to lift COVID-19 lockdowns decision makers must know if the outbreak is sufficiently controlled and if there is adequate test and trace capacity to prevent a resurgence of cases following reopening. To support this need, criteria that should be satisfied to ensure it is safe to reopen have been proposed by policy, government, and academic entities [ex. @gottlieb_national_2020, @prevent_epidemics_adaptive_2020, @white_house_opening_2020]. A common criterion among reopening guidelines to determine if an outbreak is sufficiently controlled is a 14 day decrease in reported cases. This criterion was initially proposed in the American Enterprise Institute national reopening plan [page 3 @gottlieb_national_2020], possibly based on the reasoning that decreasing cases implies that the outbreak is controlled and the 14-day duration was chosen because most exposed individuals become infectious within 14 days [@lauer_incubation_2020]. To determine if there is adequate test and trace capacity some guidelines have proposed thresholds for the number of tests and contact tracers that are needed by population, e.g.,  a weekly average of 30 tests per 1,000 residents and 30 contact tracers per 100,000 residents ([NY Forward 2020](https://www.governor.ny.gov/sites/governor.ny.gov/files/atoms/files/NYForwardReopeningGuide.pdf)). These criteria and others are tests of the hypothesis that it unsafe (null) or safe (alternative) to reopen from lockdown. However, it is unclear what rejection region is implied by these tests, the performance of these hypothesis tests, or how they may compare to alternative tests. Consequently, it is unclear how statistically or epidemiologically justifiable these proposed reopening critera are. 
 <!-- estimated that the 97.5 percentile of the incubation period distribution is 11.5 days (CI, 8.2 to 15.6 days)) -->
 
 In this proposal I will address the problem of identifying when it is safe to phase out of lockdowns by developing epidemiologically justifiable hypothesis tests that can be used to set defensible criteria for reopening. 
@@ -45,7 +45,7 @@ where $Z_i$ is the number of secondary cases produced by the $i$-th infected ind
 
 \begin{align*}
 X_{t+1} & \sim \Sigma^{Z_t}_{i=1}X_i \\
-            & \sim NB(\Sigma^{X_t}_{i=1} R_0, \Sigma^{X_t}_{i=1} k) \text{     (I think this is correct. still need to prove)}
+            & \sim NB(\Sigma^{X_t}_{i=1} R(t), \Sigma^{X_t}_{i=1} k) \text{     (I think this is correct. still need to prove)}
 \end{align*}
 
 where the step size is chosen here to be the incubation period, 14 days (not sure how reasonable this is). 
@@ -162,6 +162,50 @@ likelihood(x_prev = 10, x_now = 20, disp = 0.16, interval = c(1, 2.5))
 
 ```
 
+```{r}
+set.seed(123)
+testdf <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont, nsim = 1)
+
+testdf$lik0 <- NA
+testdf$lik1 <- NA
+
+for (i in 2:nrow(testdf)) {
+  # observed states and known pars
+  x0 <- unlist(testdf[i-1, "infected"])
+  x1 <- unlist(testdf[i, "infected"])
+  disp <- unlist(testdf[i-1, "disp_true"])
+  
+  # parameter space
+  theta0 <- c(1 + 10^-6, 2.5) # acceptance
+  theta1 <- c(0, 1)           # rejection
+  # init guess for optim
+  guess0 <- 1.5
+  guess1 <- 0.5
+  
+  # likelihood calculation
+  testdf[i,"lik0"] <- likelihood(x_prev = x0, x_now = x1, disp = disp,  # p(x_now | x_prev, disp, theta \in Theta_0)
+                     interval = theta0, guess = guess0)
+  testdf[i,"lik1"] <- likelihood(x_prev = x0, x_now = x1, disp = disp,  # p(x_now | x_prev, disp, theta \in Theta_1)
+                     interval = theta1, guess = guess1)
+}
+ 
+test_sprt <- testdf %>%
+  mutate(sr = log(lik1/lik0) ,
+         sr = ifelse(is.na(sr), 0, sr),
+         sprt = cumsum(sr),
+         a = log( (1 - 0.05)/ 0.05),
+         b = log(0.05/(1 - 0.05)))
+```
+
+```{r plot_sprt}
+test_sprt %>%
+  ggplot() +
+  geom_line(aes(x = time, y = sprt)) +
+  geom_hline(aes(x = time, yintercept = a), type = "dashed") +
+  geom_hline(aes(x = time, yintercept = b), type = "dashed")
+```
+
+
 ### Construct hypothesis test
 Making a slight modification to @phatarfod_sequential_1965 to allow for composite hypothesis testing of dependent observations let 
 
@@ -175,8 +219,8 @@ then the sequential probability ratio test (SPRT) for the composite hypothesis t
 \begin{align*}
 \phi(x_n) = 
     \begin{cases}
-      \text{reject } H_0  & \Sigma^{n}_{0} S_r > \log(A)\\
-      \text{accept } H_0 & \Sigma^{n}_{0} S_r \leq \log(B)
+      \text{reject } H_0  & \Sigma^{n}_{r = 0} S_r > \log(A)\\
+      \text{accept } H_0 & \Sigma^{n}_{r = 0} S_r \leq \log(B)
     \end{cases}
 \end{align*}
 
