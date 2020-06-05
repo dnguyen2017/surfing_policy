@@ -139,7 +139,7 @@ To define acceptance and rejection regions
   * explanation of impact of control type and magnitude on outbreak dynamics (e.g., extinction probability)
   * identify thresholds to determine $\Theta_0$ and $\Theta_1$
 
-```{r likelihood, eval = FALSE}
+```{r likelihood}
 # if it is true that for X_i ~ NB(mu, k) iid that sum(X_i) ~ NB(sum(mu), sum(k)) then the P( x_{t+1} | x_t, theta ) is 
 # dnbinom(x = x1, mu = x0 * r0, size = x0 * disp) because the X_i are iid
 
@@ -201,8 +201,10 @@ test_sprt <- testdf %>%
 test_sprt %>%
   ggplot() +
   geom_line(aes(x = time, y = sprt)) +
-  geom_hline(aes(x = time, yintercept = a), type = "dashed") +
-  geom_hline(aes(x = time, yintercept = b), type = "dashed")
+  geom_hline(aes(yintercept = a), linetype = "dashed") +
+  geom_hline(aes(yintercept = b), linetype = "dashed") +
+  labs(title = "SPRT without resetting",
+       caption = "Previous confirmation of H0 overwhelms new information that is consistent with H1")
 ```
 
 
