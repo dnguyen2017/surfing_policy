@@ -140,31 +140,25 @@ To define acceptance and rejection regions
   * identify thresholds to determine $\Theta_0$ and $\Theta_1$
 
 ```{r likelihood, eval = FALSE}
-# if it is true that for X_i ~ NB(mu, k) iid that sum(X_i) ~ NB(mu, sum(k)) then the P( x_{t+1} | x_t, theta ) is 
-# dnbinom(x = x_now, mu = r0, size = x_prev*disp) because the X_i are iid
-outbreak
-r_h0 <- seq(1, 2, by = 0.1)
-r_h1 <- seq(0, 1, by = 0.1)
+# if it is true that for X_i ~ NB(mu, k) iid that sum(X_i) ~ NB(sum(mu), sum(k)) then the P( x_{t+1} | x_t, theta ) is 
+# dnbinom(x = x1, mu = x0 * r0, size = x0 * disp) because the X_i are iid
 
-obj_fn <- function(pars, input, dispersion) {
-  dnbinom(x = input, mu = pars, size = size)
+objfn <- function(r, x1, x0, dispersion) {
+  # likelihood( x1 | x0, r, dispersion )
+  dnbinom(x = x1, mu = x0*r, size = x0*dispersion)
 }
 
-replicate(5, rnbinom(n = 1, mu = 2, size = 0.16))
+mean(replicate(100, rnbinom(n = 1, mu = 10*2, size = 10*0.16)))
 
-optim(par = c(1), obj_fn(input = , dispersion = 0.16))
-
-outbreak$like_h0 <- NA
-outbreak$like_h1 <- NA
-
-# want to find mle in parameter space of h0 and h1
-# not currently right
-for ( i in 2:nrow(outbreak)) {
-   dnbinom(x = unlist(outbreak[i, "infected"]),
-          mu = r_h0,
-          size = unlist(outbreak[i, "disp_true"]))
+#  find restricted MLE under h_0 or h_1
+likelihood <- function (x_prev, x_now, disp, interval = c(), guess = 1.5) {
+  opt <- optim(par = guess, fn = objfn, control = list(fnscale = -1), 
+      method = "Brent", lower = interval[1], upper = interval[2],
+      x0 = x_prev, x1 = x_now, dispersion = disp)
+  return(opt$value)
 }
 
+likelihood(x_prev = 10, x_now = 20, disp = 0.16, interval = c(1, 2.5))
 
 ```
 
