@@ -139,7 +139,7 @@ To define acceptance and rejection regions
   * explanation of impact of control type and magnitude on outbreak dynamics (e.g., extinction probability)
   * identify thresholds to determine $\Theta_0$ and $\Theta_1$
 
-```{r likelihood}
+```{r likelihood, results = 'hide'}
 # if it is true that for X_i ~ NB(mu, k) iid that sum(X_i) ~ NB(sum(mu), sum(k)) then the P( x_{t+1} | x_t, theta ) is 
 # dnbinom(x = x1, mu = x0 * r0, size = x0 * disp) because the X_i are iid
 
@@ -162,7 +162,7 @@ likelihood(x_prev = 10, x_now = 20, disp = 0.16, interval = c(1, 2.5))
 
 ```
 
-```{r}
+```{r calculate_sprt, results = 'hide'}
 set.seed(123)
 testdf <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont, nsim = 1)
 
@@ -194,17 +194,62 @@ test_sprt <- testdf %>%
          sr = ifelse(is.na(sr), 0, sr),
          sprt = cumsum(sr),
          a = log( (1 - 0.05)/ 0.05),
-         b = log(0.05/(1 - 0.05)))
+         b = log(0.05/(1 - 0.05)),
+         decision = case_when(sprt <= a & sprt >= b ~"?",
+                              sprt > a ~ "H1",
+                              sprt < b ~ "H0"))
+
+sprt_reset <- vector("numeric", length = nrow(test_sprt))
+decision_reset <- vector("character", length = nrow(test_sprt))
+
+sr <- test_sprt$sr
+a <- unique(test_sprt$a)
+b <- unique(test_sprt$b)
+  
+sprt_reset[1] <- 0
+decision_reset[1] <- "?"
+
+for (i in 2:nrow(test_sprt)) {
+  
+  # if no decision has been made, update SPRT
+  # otherwise, reset the SPRT
+  ifelse(decision_reset[i] == "?",
+         sprt_reset[i] <- sprt_reset[i-1] + sr[i],
+         sprt_reset[i] <- sr[i])
+  
+  # if SPRT has crossed bounds, make decision
+  # otherwise continue sampling
+  ifelse(sprt_reset[i] < b
+         ,{decision_reset[i] <- "H0"}#; sprt_reset[i+1] <- sr[i+1]; next}
+         ,ifelse(sprt_reset[i] > a
+                 ,{decision_reset[i] <- "H1"}#; sprt_reset[i+1] <- sr[i+1]; next}
+                 ,{decision_reset[i] <- "?"})
+         )
+}
+
+test_sprt$sprt_reset <- sprt_reset
+test_sprt$decision_reset <- decision_reset
+
+test_sprt
 ```
 
-```{r plot_sprt}
+```{r plot_sprt, out.width = "50%", fig.show = 'hold'}
 test_sprt %>%
   ggplot() +
   geom_line(aes(x = time, y = sprt)) +
+  geom_point(aes(x = time, y = sprt, col = decision), size = 2) +
   geom_hline(aes(yintercept = a), linetype = "dashed") +
   geom_hline(aes(yintercept = b), linetype = "dashed") +
   labs(title = "SPRT without resetting",
        caption = "Previous confirmation of H0 overwhelms new information that is consistent with H1")
+
+test_sprt %>%
+  ggplot() +
+  geom_line(aes(x = time, y = sprt_reset)) +
+  geom_point(aes(x = time, y = sprt_reset, col = decision_reset), size = 2) +
+  geom_hline(aes(yintercept = a), linetype = "dashed") +
+  geom_hline(aes(yintercept = b), linetype = "dashed") +
+  labs(title = "SPRT with resetting")
 ```
 
 
