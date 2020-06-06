@@ -275,5 +275,20 @@ The thresholds are set following Wald's method such that $A \sim \frac{1-\beta}{
 
 In our case, the parameter ($\theta$) of interest is $R(t)$. When $S_r > \log(A)$ the decision maker concludes that it is unsafe to reopen and when $S_r \leq \log (B)$. This should have an advantage over the criteria that have been proposed on purely heuristic grounds since the decision maker is able to set choose the type I and II error rates whereas the error rates of the proposed criteria are uncontrolled and unknown. Another likely justification is that the SPRT may be the optimal test for this problem class (it is for the case where observations are iid, not sure about the markov dependence case).
 
+```{r inf_onset_times, eval = FALSE}
+# point estimates from: Lauer et al 2020. Ann. Int. Med https://www.acpjournals.org/doi/10.7326/M20-0504
+icub <- tibble(days = seq(0.5, 20, 0.5),
+               onset_ln = dlnorm(x = days, meanlog = 1.621, sdlog = 0.418),
+               onset_gamma = dgamma(x = days, shape =5.807, scale =0.948),
+               onset_weibull = dweibull(x = days, shape = 2.453, scale = 6.258))
+
+icub %>%
+  pivot_longer(cols = 2:4,
+               values_to = "probability",
+               names_to = "distribution") %>%
+  ggplot() +
+  geom_line(aes(x = days, y = probability, col = distribution))
+```
+
 
 # References
