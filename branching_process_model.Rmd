@@ -41,16 +41,15 @@ Z_i & \sim NB(R(t), k)
 \end{align*}
 
 where $Z_i$ is the number of secondary cases produced by the $i$-th infected individual which follows a negative binomial distribution with mean $R(t)$ and dispersion $k$. Epidemiologically, $R(t)$ is the time-specific mean number of infections caused by an infectious individual and $k$ represents variability in infectiousness among individuals [@lloyd-smith_superspreading_2005]. Under the assumption that all $X_i$ are independent and identically distributed (iid) the total number of secondary infections is given by
-<!-- (need to figure out how to write sum of neg bin under the mean-disp parameterization) -->
 
 \begin{align*}
 X_{t+1} & \sim \Sigma^{Z_t}_{i=1}X_i \\
-            & \sim NB(\Sigma^{X_t}_{i=1} R(t), \Sigma^{X_t}_{i=1} k) \text{     (I think this is correct. still need to prove)}
+            & \sim NB(\Sigma^{X_t}_{i=1} R(t), \Sigma^{X_t}_{i=1} k)
 \end{align*}
 
 where the step size is chosen here to be the incubation period, 14 days (not sure how reasonable this is). 
 
-```{r check_dist, echo = TRUE}
+```{r check_dist, eval = FALSE}
 # numerically test claim that the previous two distributions are the same
 test <- tibble("sum(X_i)" = replicate(10000, sum(rnbinom(n = 10, mu = 2, size = 0.16))),
        "NB(r0*x_t,k*x_t)" = replicate(10000, rnbinom(n = 1, mu = 10 * 2, size = 10 * 0.16)) ) %>%
@@ -65,7 +64,7 @@ ggplot(test) +
   labs(title = "compare distributions")
 ```
 
-```{r branching_model, echo = TRUE}
+```{r branching_model}
 episim <- function (t, i_0, r0, disp, cont, nsim) {
   
   # init list to store each simulation
@@ -291,10 +290,10 @@ icub %>%
 ```
 
 
-```{r assign_inf_onset, eval = FALSE}
+```{r assign_inf_onset, , out.width = "50%", fig.show = 'hold'}
 # simulate onset time of infectiousness
 outbreak_inc <- outbreak %>% 
-  filter(simulation == 2) %>%
+  filter(simulation %in% 1:20) %>% # only do first 20 since the per_day and df calculations can take a while (setup dependency/cache later)
   rowwise() %>%
   mutate(inf_day = list(rlnorm(n = infected, meanlog = 1.621, sdlog = 0.418)) ) %>%
   # ok to truncate at 14 days since 
@@ -306,18 +305,32 @@ outbreak_inc <- outbreak %>%
 # get number that were infected on day \in 1:14 in each time period  
 per_day <-
   outbreak_inc %>% unnest(cols = c(inf_day)) %>%
-  group_by(time) %>%
-  count(inf_day)
+  group_by(time, simulation) %>%
+  count(inf_day) 
 
 df <-
   per_day %>% complete(nesting(inf_day = 1:14), fill = list(n = 0)) %>%
-  rowid_to_column(var = "day")
+  group_by(simulation) %>% mutate(day = row_number())
+```
 
-ggplot(df, aes(x = day, y = n, col = inf_day)) +
+```{r plot_symptom_onset_per_day}
+filter(df, simulation == 10) %>%
+ggplot(aes(x = day, y = n, col = inf_day)) +
   geom_point() + viridis::scale_color_viridis() +
-  labs(title = "Simulated cases per day",
+  labs(title = "Cases per day for the 10th simulation",
        caption = "Each generation is infected on same day and incubation is log-normal",
-       y = "no. of individuals that become symptomatic")
+       y = "no. of individuals that become symptomatic") +
+  theme_minimal()
+
+ggplot(df, aes(x = day, y = n, group = simulation, col = as.factor(simulation))) +
+  geom_line(alpha = 0.4) +
+  labs(title = "Cases per day across 20 independent simulations",
+       caption = "Each generation is infected on same day and incubation is log-normal",
+       y = "no. of individuals that become symptomatic") +
+  theme_minimal() +
+  theme(legend.position = "none")
+  
+
 ```
 
 
