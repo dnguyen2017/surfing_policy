@@ -289,6 +289,9 @@ icub %>%
   geom_line(aes(x = days, y = probability, col = distribution))
 ```
 
+# Assessment of 14-day rule
+
+Before we can assess the performance of the 14-day rule we must translate the total cases per generation into cases per day. TO do so, we draw symptom onset dates from a log normal distribution `rlnorm(n = infected, meanlog = 1.621, sdlog = 0.418)` using parameters estimated by @lauer_incubation_2020. This procedure assumes that onset of symptoms is independent across cases which seems reasonable. However, it also assumes that all individuals in a generation were exposed at the exact same time, which creates strong biweekly seasonality in cases per day as seen in the following plots. To avoid this modeling artifact, I will need to also simulate the times of exposure in addition to onset of infectivity. An example of this is in @hellewell_feasibility_2020 ([code and r package](https://github.com/cmmid/ringbp)).
 
 ```{r assign_inf_onset, , out.width = "50%", fig.show = 'hold'}
 # simulate onset time of infectiousness
@@ -313,7 +316,8 @@ df <-
   group_by(simulation) %>% mutate(day = row_number())
 ```
 
-```{r plot_symptom_onset_per_day}
+
+```{r plot_symptom_onset_per_day, out.width = "50%", fig.show = 'hold'}
 filter(df, simulation == 10) %>%
 ggplot(aes(x = day, y = n, col = inf_day)) +
   geom_point() + viridis::scale_color_viridis() +
