@@ -291,4 +291,34 @@ icub %>%
 ```
 
 
+```{r assign_inf_onset, eval = FALSE}
+# simulate onset time of infectiousness
+outbreak_inc <- outbreak %>% 
+  filter(simulation == 2) %>%
+  rowwise() %>%
+  mutate(inf_day = list(rlnorm(n = infected, meanlog = 1.621, sdlog = 0.418)) ) %>%
+  # ok to truncate at 14 days since 
+  # plnorm(q = 14, meanlog = 1.621, sdlog = 0.418) # = 0.992
+  # summarize(max_incubation = sum(inf_day > 14)/infected) # at most ~ 1 % individuals ever have incubation times > 14 days
+  mutate(inf_day = list((ceiling(inf_day))),
+         inf_day = list(ifelse(inf_day > 14, 14, inf_day)))
+
+# get number that were infected on day \in 1:14 in each time period  
+per_day <-
+  outbreak_inc %>% unnest(cols = c(inf_day)) %>%
+  group_by(time) %>%
+  count(inf_day)
+
+df <-
+  per_day %>% complete(nesting(inf_day = 1:14), fill = list(n = 0)) %>%
+  rowid_to_column(var = "day")
+
+ggplot(df, aes(x = day, y = n, col = inf_day)) +
+  geom_point() + viridis::scale_color_viridis() +
+  labs(title = "Simulated cases per day",
+       caption = "Each generation is infected on same day and incubation is log-normal",
+       y = "no. of individuals that become symptomatic")
+```
+
+
 # References
