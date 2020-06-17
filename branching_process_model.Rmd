@@ -71,21 +71,24 @@ episim <- function (t, i_0, r0, disp, cont, nsim) {
   out_list <- vector("list", nsim)
   
   for (k in seq_along(out_list)) {
-      # initialize data frame
-  out <- tibble("time" = t
-                , "R0_true" = r0
-                , "disp_true" = disp
-                , "control" = cont
-                , "infected" = i_0
-                , "simulation" = k)
+    # initialize data frame
+    out <- tibble("time" = t
+                  , "R0_true" = r0
+                  , "disp_true" = disp
+                  , "control" = cont
+                  , "infected" = NA
+                  , "simulation" = k)
+    out[1, "infected"] <- i_0
+    
     # branching process simulations
-  for (i in 2:length(t)) {
-    out[i, "infected"] <- sum(rnbinom(n = unlist(out[i-1, "infected"]), # number infected in previous time step
-                                      mu = (1 - unlist(out[i-1, "control"]))  * unlist(out[i-1, "R0_true"]), # (controlled) R
-                                      size = unlist(out[i-1, "disp_true"]))) # dispersion
-  }
-  # save in out_list
-  out_list[[k]] <- out
+    for (i in 2:length(t)) {
+      out[i, "infected"] <- sum(rnbinom(n = unlist(out[i-1, "infected"]), # number infected in previous time step
+                                        mu = (1 - unlist(out[i-1, "control"]))  * unlist(out[i-1, "R0_true"]), # (controlled) R
+                                        size = unlist(out[i-1, "disp_true"]))) # dispersion
+      if(out[i, "infected"] == 0) break
+    }
+    # save in out_list
+    out_list[[k]] <- out %>% filter(!is.na(infected))
   }
   return(bind_rows(out_list))
 }
