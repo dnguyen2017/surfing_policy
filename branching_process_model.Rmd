@@ -138,6 +138,41 @@ To define acceptance and rejection regions
   * explanation of impact of control type and magnitude on outbreak dynamics (e.g., extinction probability)
   * identify thresholds to determine $\Theta_0$ and $\Theta_1$
 
+```{r simulate_size_and_extinction, cache = TRUE}
+# extinction probability
+
+
+# total infected after n generations
+rvals <- seq(0.1, 3, by = 0.1)
+finalsize_list <- vector("list", length = length(rvals))
+set.seed(123)
+for ( i in seq_along(rvals)) {
+  finalsize_list[[i]] <- episim(t = 1:10, i_0 = 10, r0 = rvals[i], disp = disp, cont = cont, 
+                                nsim = 10^2)
+}
+
+finalsize_df <- bind_rows(finalsize_list)
+
+finalsize_df <-
+  finalsize_df %>%
+  group_by(R0_true, simulation) %>%
+  summarize(total = sum(infected))
+```
+
+```{r final_size_plot}
+finalsize_df %>%
+  ggplot() +
+  geom_jitter(aes(x = R0_true, y = total), alpha = 0.5) +
+  scale_y_log10() +
+  theme_minimal() +
+  geom_vline(aes(xintercept = 1), linetype = "dashed", size = 1.5, col = "red") +
+  geom_hline(aes(yintercept = 10), size = 1.5) +
+  labs(title = "Distribution of total infections by 10th generation",
+       y = "Total infections",
+       x = "Reproductive number (R0)")
+```
+
+
 ```{r likelihood, results = 'hide'}
 # if it is true that for X_i ~ NB(mu, k) iid that sum(X_i) ~ NB(sum(mu), sum(k)) then the P( x_{t+1} | x_t, theta ) is 
 # dnbinom(x = x1, mu = x0 * r0, size = x0 * disp) because the X_i are iid
