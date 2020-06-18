@@ -96,7 +96,7 @@ episim <- function (t, i_0, r0, disp, cont, nsim) {
 # set params and init conds
 t <- 1:20
 r0 <- c(rep(2, 10), rep(0.9, 10)) # lockdown starts at t = 11
-disp <- 0.16 # sars-like dispersion
+disp <- 0.14 # median of posterior estimate of k for SARS-CoV-2 (Riou and Althaus 2020)
 i_0 <- 10
 cont <- 0
 n <- 100
@@ -192,8 +192,9 @@ niteration <- 10^2
 #        y = "probability of extinction (q)",
 #        caption = "dispersion: k = 0.16")
 
-# estimates of k for SARS-CoV-2 from Riou and Althaus (2020) Euro Surveill
-k_vec <- c(0.54, 0.14, 6.95) # median and 90 % highest density interval
+# estimates of k for SARS-CoV-2 
+k_vec <- c(0.54, 0.14, 6.95, # median and 90 % highest density interval from Riou and Althaus (2020) Euro Surveill
+           0.1, 0.05, 0.2)   # endo et al. 2020 wellcome open research
 r0_vec <- seq(0.1, 5, by = 0.1)
 q_list <- vector("list", length(k_vec)*length(r0_vec))
 
@@ -279,20 +280,28 @@ finalsize_df <-
 
 ```{r plot_pext_and_finalsize, out.width = "50%", fig.show = 'hold'}
 # probability of extinction
-q_list %>% bind_rows() %>%
+extinction_df <- 
+  q_list %>% bind_rows() %>%
 group_by(k, r0) %>%
 summarize(p_extinction = max(pext)) %>%
-ggplot(aes(x = r0, y = p_extinction, group = k, col = as.factor(k) )) +
-geom_line(size = 2) + viridis::scale_color_viridis(discrete = T) +
-geom_vline(aes(xintercept = 1), linetype = "dashed") +
-ylim(0,1) +
-theme_minimal() +
-labs(title = "a. Probability of stochastic extinction of an outbreak",
-#subtitle = "Values of dispersion (k) based on estimated posterior median and 90 % HDI for SARS-CoV-2*",
-#caption = "*Riou and Althaus (2020) Euro Surveill",
-x = "Basic reproductive number (R0)",
-y = "Probability of extinction (q)",
-col = "dispersion (k)")
+mutate(estimate = case_when(k == 0.1 | k == 0.54 ~ "a.median",
+                            k == 0.05 | k == 0.14 | k == 6.95 | k == 0.2 ~ "b.interval"),
+       source = case_when(k == 0.05 | k == 0.1 | k == 0.2 ~ "Endo et al. (2020)",
+                          k == 0.14 | k == 0.54 | k == 6.95 ~ "Riou & Althaus (2020)"))
+
+pal <- c("#440154FF", "#55C667FF") # set manual color palette
+extinction_df %>%
+  ggplot(aes(x = r0, y = p_extinction, group = k, col = source, linetype = estimate)) +
+  geom_line(size = 1.5) + 
+  #viridis::scale_color_viridis(discrete = T) +
+  scale_color_manual(values = pal) +
+  geom_vline(aes(xintercept = 1), linetype = "dashed", size = 1.5, col = "red") +
+  ylim(0,1) +
+  theme_minimal() + theme(legend.position = "none") +
+  labs(title = "a. Probability of stochastic extinction of an outbreak",
+       x = "Basic reproductive number (R0)",
+       y = "Probability of extinction (q)",
+       col = "dispersion (k)")
 
 # final size
 finalsize_df %>%
@@ -304,10 +313,12 @@ finalsize_df %>%
   geom_hline(aes(yintercept = 10), size = 1.5) +
   labs(title = "b. Distribution of total infections by 10th generation",
        y = "Total infections",
-       x = "Reproductive number (R0)")
+       x = "Basic reproductive number (R0)")
 
 ```
+**Figure 1: a. Probability of a stochastic extinction of an outbreak.** *add explanation of threshold at r0 = 1 and why low k (high dispersion) has higher probability of extinction compared to low dispersion)* Values of dispersion (k) are estimates from two studies of SARS-CoV-2 (solid lines are median and dashed lines are interval estimates; green - median 0.54 (0.14 - 6.54 90 % HDI) @riou_pattern_2020; purple - median 0.1 (0.05 - 0.2, 95 % CrI) @endo_estimating_2020). **b. Comparison of total cases by 10th generation.** Each point is an independent simulation. 50 simulations were run for each value of $R_0$ and k = 0.16 for all simulations.
 
+<!-- should use the two median estimates of k for the size at n-th generation plot -->
 
 ```{r likelihood, results = 'hide'}
 # if it is true that for X_i ~ NB(mu, k) iid that sum(X_i) ~ NB(sum(mu), sum(k)) then the P( x_{t+1} | x_t, theta ) is 
