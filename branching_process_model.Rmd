@@ -291,8 +291,9 @@ mutate(estimate = case_when(k == 0.1 | k == 0.54 ~ "a.median",
 
 pal <- c("#440154FF", "#55C667FF") # set manual color palette
 extinction_df %>%
-  ggplot(aes(x = r0, y = p_extinction, group = k, col = source, linetype = estimate)) +
-  geom_line(size = 1.5) + 
+  mutate(label = if_else(r0 == max(r0), paste0("k = ",k), NA_character_)) %>%
+  ggplot(aes(x = r0, y = p_extinction, group = k, linetype = source)) +#, col = source, linetype = estimate)) +
+  geom_line(size = 1) + 
   #viridis::scale_color_viridis(discrete = T) +
   scale_color_manual(values = pal) +
   geom_vline(aes(xintercept = 1), linetype = "dashed", size = 1.5, col = "red") +
@@ -301,7 +302,8 @@ extinction_df %>%
   labs(title = "a. Probability of stochastic extinction of an outbreak",
        x = "Basic reproductive number (R0)",
        y = "Probability of extinction (q)",
-       col = "dispersion (k)")
+       col = "dispersion (k)") +
+  ggrepel::geom_text_repel(aes(label = label), nudge_y = 0.05, nudge_x = 1, na.rm = TRUE)
 
 # final size
 finalsize_df %>%
