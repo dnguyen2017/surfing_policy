@@ -107,7 +107,7 @@ outbreak <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont, nsim = n
 
 Here are some example simulations of this model. Control is implemented at the 11^th^ time step.
 
-```{r plot_example_branching_proc, out.width = "50%", fig.show = 'hold'}
+```{r plot_example_branching_proc, out.width = "50%", fig.show = 'hold', eval = FALSE}
 # Plot simulations
 ggplot(outbreak, aes(x = time, y = infected, group = simulation, col = as.factor(simulation) )) +
   geom_line(alpha = 0.7) +
@@ -141,17 +141,132 @@ To define acceptance and rejection regions
   * explanation of impact of control type and magnitude on outbreak dynamics (e.g., extinction probability)
   * identify thresholds to determine $\Theta_0$ and $\Theta_1$
 
-```{r simulate_size_and_extinction, cache = TRUE}
-# extinction probability
+```{r extinction_prob}
+# per supplement of lloyd-smith et al. 2005:
+# The probability that the population is extinct by the nth generation is denoted q and the pgf is denoted g(s).
+# Then q = g_n(q)  as n -> inf and q is bounded [0,1]
+# where g(s) = (1 + (r0/k) * (1 - s*))^(-k), for the NB model
+# and g_0(s) = s, g_1(s) = g(s), ..., g_n+1(s) = g(g_n(s))
+
+gfun <- function (s, r0, k) { # g(s; r0, k) 
+  return((1 + (r0/k) * (1 - s))^(-k))
+}
+
+niteration <- 10^2
+# q <- vector("numeric", length = niteration + 1)
+# q[1] <- 0 # s
+# 
+# # set values of R to calculate extinction probability
+# r0_vec <- seq(0.1, 5, by = 0.1)
+# q_list <- vector("list", length = length(r0_vec))
+# 
+# for (i in seq_along(r0_vec)) {
+#   # init vector to store values of q
+#   q <- vector("numeric", length = niteration + 1)
+#   q[1] <- 0 # g_0(0)
+#   
+#   for (j in 1:(niteration + 1)) {
+#     q[j + 1] <- gfun(q[j], r0_vec[i], 0.16) # calculate g_1(0), ..., g_n(0) 
+#   }
+#   
+#   q_list[[i]] <- tibble(n = 0:(niteration + 1),
+#                         pext = q,
+#                         r0 = r0_vec[i])
+# }
+# 
+# pext_df <- bind_rows(q_list)
+# 
+# # verify convergence of q (all lines should asymptote)
+# # ggplot(pext_df, aes(x = n, y = pext, col = r0, group = r0)) +
+# #   geom_line() + viridis::scale_color_viridis()
+# 
+# pext_df %>%
+#   group_by(r0) %>%
+#   summarize(p_extinction = max(pext)) %>%
+#   ggplot() +
+#   geom_line(aes(x = r0, y = p_extinction), size = 1.5) +
+#   geom_vline(aes(xintercept = 1), linetype = "dashed") +
+#   lims(y = c(0,1)) +
+#   labs(title = "Probability of stochastic extinction of outbreak",
+#        x = "Basic reproductive number (R0)",
+#        y = "probability of extinction (q)",
+#        caption = "dispersion: k = 0.16")
+
+# estimates of k for SARS-CoV-2 from Riou and Althaus (2020) Euro Surveill
+k_vec <- c(0.54, 0.14, 6.95) # median and 90 % highest density interval
+r0_vec <- seq(0.1, 5, by = 0.1)
+q_list <- vector("list", length(k_vec)*length(r0_vec))
+
+x <- 1
+for (i in seq_along(k_vec)) {
+  # init vector to store values of q
+  for (j in seq_along(r0_vec)) {
+    q <- vector("numeric", length = niteration + 1)
+    q[1] <- 0 # g_0(0)
+    # calculate g_1(0), ..., g_n(0)
+    for (k in 1:(niteration + 1)) {
+      q[k + 1] <- gfun(q[k], r0_vec[j], k_vec[i])  
+    }
+  # create df and store in q_list
+  q_list[[x]] <- tibble(n = 0:(niteration + 1),
+                        pext = q,
+                        k = k_vec[i],
+                        r0 = r0_vec[j])
+  x <- x + 1
+  }
+}
+
+```
+
+```{r compare_lloydsmith, eval = FALSE}
+k_vec <- c(0.01, 0.1, 0.5, 1, 4, 10^6) # last one is "infinity"
+r0_vec <- seq(0.1, 5, by = 0.1)
+q_list <- vector("list", length(k_vec)*length(r0_vec))
+
+x <- 1
+for (i in seq_along(k_vec)) {
+  # init vector to store values of q
+  for (j in seq_along(r0_vec)) {
+    q <- vector("numeric", length = niteration + 1)
+    q[1] <- 0 # g_0(0)
+    # calculate g_1(0), ..., g_n(0)
+    for (k in 1:(niteration + 1)) {
+      q[k + 1] <- gfun(q[k], r0_vec[j], k_vec[i])  
+    }
+  # create df and store in q_list
+  q_list[[x]] <- tibble(n = 0:(niteration + 1),
+                        pext = q,
+                        k = k_vec[i],
+                        r0 = r0_vec[j])
+  x <- x + 1
+  }
+}
+
+q_list %>% bind_rows() %>%
+  group_by(k, r0) %>%
+  summarize(p_extinction = max(pext)) %>%
+  ggplot(aes(x = r0, y = p_extinction, group = k, col = as.factor(k) )) +
+  # ggplot(aes(x = n, y = pext, col = k, group = k)) +
+  geom_line(size = 2) + viridis::scale_color_viridis(discrete = T) +
+  theme_minimal() +
+  labs(title = "Probability of stochastic extinction of an outbreak",
+       subtitle = "Successfully matches plot 2.b from Lloyd-Smith et al. 2005",
+       x = "Basic reproductive number (R0)",
+       y = "Probability of extinction (q)",
+       col = "dispersion (k)")
+  
+
+```
 
 
+```{r simulate_final_size, cache = TRUE}
 # total infected after n generations
-rvals <- seq(0.1, 3, by = 0.1)
+rvals <- seq(0.1, 5, by = 0.1)
 finalsize_list <- vector("list", length = length(rvals))
 set.seed(123)
 for ( i in seq_along(rvals)) {
   finalsize_list[[i]] <- episim(t = 1:10, i_0 = 10, r0 = rvals[i], disp = disp, cont = cont, 
-                                nsim = 10^2)
+                                nsim = 50)
 }
 
 finalsize_df <- bind_rows(finalsize_list)
@@ -162,7 +277,24 @@ finalsize_df <-
   summarize(total = sum(infected))
 ```
 
-```{r final_size_plot}
+```{r plot_pext_and_finalsize, out.width = "50%", fig.show = 'hold'}
+# probability of extinction
+q_list %>% bind_rows() %>%
+group_by(k, r0) %>%
+summarize(p_extinction = max(pext)) %>%
+ggplot(aes(x = r0, y = p_extinction, group = k, col = as.factor(k) )) +
+geom_line(size = 2) + viridis::scale_color_viridis(discrete = T) +
+geom_vline(aes(xintercept = 1), linetype = "dashed") +
+ylim(0,1) +
+theme_minimal() +
+labs(title = "a. Probability of stochastic extinction of an outbreak",
+#subtitle = "Values of dispersion (k) based on estimated posterior median and 90 % HDI for SARS-CoV-2*",
+#caption = "*Riou and Althaus (2020) Euro Surveill",
+x = "Basic reproductive number (R0)",
+y = "Probability of extinction (q)",
+col = "dispersion (k)")
+
+# final size
 finalsize_df %>%
   ggplot() +
   geom_jitter(aes(x = R0_true, y = total), alpha = 0.5) +
@@ -170,9 +302,10 @@ finalsize_df %>%
   theme_minimal() +
   geom_vline(aes(xintercept = 1), linetype = "dashed", size = 1.5, col = "red") +
   geom_hline(aes(yintercept = 10), size = 1.5) +
-  labs(title = "Distribution of total infections by 10th generation",
+  labs(title = "b. Distribution of total infections by 10th generation",
        y = "Total infections",
        x = "Reproductive number (R0)")
+
 ```
 
 
@@ -270,26 +403,6 @@ test_sprt$decision_reset <- decision_reset
 test_sprt
 ```
 
-```{r plot_sprt, out.width = "50%", fig.show = 'hold'}
-test_sprt %>%
-  ggplot() +
-  geom_line(aes(x = time, y = sprt)) +
-  geom_point(aes(x = time, y = sprt, col = decision), size = 2) +
-  geom_hline(aes(yintercept = a), linetype = "dashed") +
-  geom_hline(aes(yintercept = b), linetype = "dashed") +
-  labs(title = "SPRT without resetting",
-       caption = "Previous confirmation of H0 overwhelms new information that is consistent with H1")
-
-test_sprt %>%
-  ggplot() +
-  geom_line(aes(x = time, y = sprt_reset)) +
-  geom_point(aes(x = time, y = sprt_reset, col = decision_reset), size = 2) +
-  geom_hline(aes(yintercept = a), linetype = "dashed") +
-  geom_hline(aes(yintercept = b), linetype = "dashed") +
-  labs(title = "SPRT with resetting")
-```
-
-
 ### Construct hypothesis test
 Making a slight modification to @phatarfod_sequential_1965 to allow for composite hypothesis testing of dependent observations let 
 
@@ -311,6 +424,26 @@ then the sequential probability ratio test (SPRT) for the composite hypothesis t
 The thresholds are set following Wald's method such that $A \sim \frac{1-\beta}{\alpha}$ and $B \sim \frac{\beta}{1-\alpha}$ where $\alpha$ and $\beta$ is the probabilities of type I and II error, respectively.
 
 In our case, the parameter ($\theta$) of interest is $R(t)$. When $S_r > \log(A)$ the decision maker concludes that it is unsafe to reopen and when $S_r \leq \log (B)$. This should have an advantage over the criteria that have been proposed on purely heuristic grounds since the decision maker is able to set choose the type I and II error rates whereas the error rates of the proposed criteria are uncontrolled and unknown. Another likely justification is that the SPRT may be the optimal test for this problem class (it is for the case where observations are iid, not sure about the markov dependence case).
+
+```{r plot_sprt, out.width = "50%", fig.show = 'hold'}
+test_sprt %>%
+  ggplot() +
+  geom_line(aes(x = time, y = sprt)) +
+  geom_point(aes(x = time, y = sprt, col = decision), size = 2) +
+  geom_hline(aes(yintercept = a), linetype = "dashed") +
+  geom_hline(aes(yintercept = b), linetype = "dashed") +
+  labs(title = "SPRT without resetting",
+       caption = "Previous confirmation of H0 overwhelms new information that is consistent with H1")
+
+test_sprt %>%
+  ggplot() +
+  geom_line(aes(x = time, y = sprt_reset)) +
+  geom_point(aes(x = time, y = sprt_reset, col = decision_reset), size = 2) +
+  geom_hline(aes(yintercept = a), linetype = "dashed") +
+  geom_hline(aes(yintercept = b), linetype = "dashed") +
+  labs(title = "SPRT with resetting")
+```
+
 
 ```{r inf_onset_times, eval = FALSE}
 # point estimates from: Lauer et al 2020. Ann. Int. Med https://www.acpjournals.org/doi/10.7326/M20-0504
