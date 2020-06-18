@@ -296,7 +296,7 @@ extinction_df %>%
   geom_line(size = 1) + 
   #viridis::scale_color_viridis(discrete = T) +
   #scale_color_manual(values = pal) +
-  geom_vline(aes(xintercept = 1), linetype = "dashed", size = 1.5, col = "red") +
+  geom_vline(aes(xintercept = 1), linetype = "dashed", size = 1, col = "red") +
   ylim(0,1) +
   theme_minimal() + theme(legend.position = "none") +
   labs(title = "a. Probability of stochastic extinction of an outbreak",
@@ -325,7 +325,7 @@ extinction_df %>%
 
 
 ```
-**Figure 1: a. Probability of a stochastic extinction of an outbreak.** *add explanation of threshold at r0 = 1 and why low k (high dispersion) has higher probability of extinction compared to low dispersion)* Values of dispersion (k) are estimates from two studies of SARS-CoV-2 (solid lines are median and dashed lines are interval estimates; green - median 0.54 (0.14 - 6.54 90 % HDI) @riou_pattern_2020; purple - median 0.1 (0.05 - 0.2, 95 % CrI) @endo_estimating_2020). **b. Comparison of total cases by 10th generation.** Each point is an independent simulation. 50 simulations were run for each value of $R_0$ and k = 0.16 for all simulations.
+**Figure 1: Probability of a stochastic extinction of an outbreak.** *add explanation of threshold at r0 = 1 and why low k (high dispersion) has higher probability of extinction compared to low dispersion)* Values of dispersion (k) are estimates from two studies of SARS-CoV-2 (solid lines are median and dashed lines are interval estimates; green - median 0.54 (0.14 - 6.54 90 % HDI) @riou_pattern_2020; purple - median 0.1 (0.05 - 0.2, 95 % CrI) @endo_estimating_2020). **b.**
 
 ```{r zn_plot}
 # final size
@@ -341,7 +341,7 @@ finalsize_df %>%
        x = "Basic reproductive number (R0)")
 
 ```
-
+** Figure 2: Comparison of total cases by 10th generation.** Each point is an independent simulation. 50 simulations were run for each value of $R_0$ and k = 0.16 for all simulations.
 
 <!-- should use the two median estimates of k for the size at n-th generation plot -->
 
@@ -545,4 +545,14 @@ ggplot(df, aes(x = day, y = n, group = simulation, col = as.factor(simulation)))
 ```
 
 
-# References
+# References {-}
+
+<div id="refs"></div>
+
+\newpage 
+
+# Key Personnel {-}
+
+\newpage
+
+# Budget
