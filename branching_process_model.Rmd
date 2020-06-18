@@ -278,7 +278,7 @@ finalsize_df <-
   summarize(total = sum(infected))
 ```
 
-```{r plot_pext_and_finalsize, out.width = "50%", fig.show = 'hold'}
+```{r extinction_plot, out.width = "50%", fig.show = 'hold'}
 # probability of extinction
 extinction_df <- 
   q_list %>% bind_rows() %>%
@@ -289,13 +289,13 @@ mutate(estimate = case_when(k == 0.1 | k == 0.54 ~ "a.median",
        source = case_when(k == 0.05 | k == 0.1 | k == 0.2 ~ "Endo et al. (2020)",
                           k == 0.14 | k == 0.54 | k == 6.95 ~ "Riou & Althaus (2020)"))
 
-pal <- c("#440154FF", "#55C667FF") # set manual color palette
+# pal <- c("#440154FF", "#55C667FF") # set manual color palette
 extinction_df %>%
   mutate(label = if_else(r0 == max(r0), paste0("k = ",k), NA_character_)) %>%
   ggplot(aes(x = r0, y = p_extinction, group = k, linetype = source)) +#, col = source, linetype = estimate)) +
   geom_line(size = 1) + 
   #viridis::scale_color_viridis(discrete = T) +
-  scale_color_manual(values = pal) +
+  #scale_color_manual(values = pal) +
   geom_vline(aes(xintercept = 1), linetype = "dashed", size = 1.5, col = "red") +
   ylim(0,1) +
   theme_minimal() + theme(legend.position = "none") +
@@ -305,6 +305,29 @@ extinction_df %>%
        col = "dispersion (k)") +
   ggrepel::geom_text_repel(aes(label = label), nudge_y = 0.05, nudge_x = 1, na.rm = TRUE)
 
+
+extinction_df %>%
+  #filter(source == "Endo et al. (2020)") %>%
+  filter(k == 0.1) %>%
+  expand_grid(z0 = c(1, 10, 50, 100)) %>%
+  mutate(p_extinction = p_extinction^z0) %>%
+  mutate(label = if_else(near(r0, 1.5), paste("Z[0] == ~" ,z0), NA_character_)) %>%
+  ggplot(aes(x = r0, y = p_extinction, group = z0)) +#, col = source, linetype = estimate)) +
+  geom_line(size = 1) +
+  geom_vline(aes(xintercept = 1), linetype = "dashed", size = 1, col = "red") +
+  ylim(0,1) +
+  theme_minimal() + theme(legend.position = "none") +
+  labs(title = "b.",
+       x = "Basic reproductive number (R0)",
+       y = "Probability of extinction (q)",
+       col = "dispersion (k)") +
+  ggrepel::geom_text_repel(aes(label = label), nudge_y = 0.05, nudge_x = 1, na.rm = TRUE, parse = TRUE)
+
+
+```
+**Figure 1: a. Probability of a stochastic extinction of an outbreak.** *add explanation of threshold at r0 = 1 and why low k (high dispersion) has higher probability of extinction compared to low dispersion)* Values of dispersion (k) are estimates from two studies of SARS-CoV-2 (solid lines are median and dashed lines are interval estimates; green - median 0.54 (0.14 - 6.54 90 % HDI) @riou_pattern_2020; purple - median 0.1 (0.05 - 0.2, 95 % CrI) @endo_estimating_2020). **b. Comparison of total cases by 10th generation.** Each point is an independent simulation. 50 simulations were run for each value of $R_0$ and k = 0.16 for all simulations.
+
+```{r zn_plot}
 # final size
 finalsize_df %>%
   ggplot() +
@@ -318,7 +341,7 @@ finalsize_df %>%
        x = "Basic reproductive number (R0)")
 
 ```
-**Figure 1: a. Probability of a stochastic extinction of an outbreak.** *add explanation of threshold at r0 = 1 and why low k (high dispersion) has higher probability of extinction compared to low dispersion)* Values of dispersion (k) are estimates from two studies of SARS-CoV-2 (solid lines are median and dashed lines are interval estimates; green - median 0.54 (0.14 - 6.54 90 % HDI) @riou_pattern_2020; purple - median 0.1 (0.05 - 0.2, 95 % CrI) @endo_estimating_2020). **b. Comparison of total cases by 10th generation.** Each point is an independent simulation. 50 simulations were run for each value of $R_0$ and k = 0.16 for all simulations.
+
 
 <!-- should use the two median estimates of k for the size at n-th generation plot -->
 
