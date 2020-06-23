@@ -9,6 +9,8 @@ bibliography: bib_decision_rules.bib
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
+
+my_theme <- function(...) theme_minimal(base_size = 15) 
 ```
 
 # Motivation
@@ -141,7 +143,7 @@ To define acceptance and rejection regions
   * explanation of impact of control type and magnitude on outbreak dynamics (e.g., extinction probability)
   * identify thresholds to determine $\Theta_0$ and $\Theta_1$
 
-```{r extinction_prob}
+```{r extinction_prob, cache = TRUE} 
 # per supplement of lloyd-smith et al. 2005:
 # The probability that the population is extinct by the nth generation is denoted q and the pgf is denoted g(s).
 # Then q = g_n(q)  as n -> inf and q is bounded [0,1]
@@ -152,7 +154,7 @@ gfun <- function (s, r0, k) { # g(s; r0, k)
   return((1 + (r0/k) * (1 - s))^(-k))
 }
 
-niteration <- 10^2
+niteration <- 10^4
 # q <- vector("numeric", length = niteration + 1)
 # q[1] <- 0 # s
 # 
@@ -298,9 +300,9 @@ extinction_df %>%
   #scale_color_manual(values = pal) +
   geom_vline(aes(xintercept = 1), linetype = "dashed", size = 1, col = "red") +
   ylim(0,1) +
-  theme_minimal() + theme(legend.position = "none") +
-  labs(title = "a. Probability of stochastic extinction of an outbreak",
-       x = "Basic reproductive number (R0)",
+  my_theme() + theme(legend.position = "none") +
+  labs(title = "a.",
+       x = expression(Basic ~ reproductive ~ number ~ (R[0])) ,
        y = "Probability of extinction (q)",
        col = "dispersion (k)") +
   ggrepel::geom_text_repel(aes(label = label), nudge_y = 0.05, nudge_x = 1, na.rm = TRUE)
@@ -311,21 +313,21 @@ extinction_df %>%
   filter(k == 0.1) %>%
   expand_grid(z0 = c(1, 10, 50, 100)) %>%
   mutate(p_extinction = p_extinction^z0) %>%
-  mutate(label = if_else(near(r0, 1.5), paste("Z[0] == ~" ,z0), NA_character_)) %>%
+  mutate(label = if_else(near(r0, 1.5), paste("x[0] == ~" ,z0), NA_character_)) %>%
   ggplot(aes(x = r0, y = p_extinction, group = z0)) +#, col = source, linetype = estimate)) +
   geom_line(size = 1) +
   geom_vline(aes(xintercept = 1), linetype = "dashed", size = 1, col = "red") +
   ylim(0,1) +
-  theme_minimal() + theme(legend.position = "none") +
+  my_theme() + theme(legend.position = "none") +
   labs(title = "b.",
-       x = "Basic reproductive number (R0)",
+       x = expression(Basic ~ reproductive ~ number ~ (R[0])) ,
        y = "Probability of extinction (q)",
        col = "dispersion (k)") +
   ggrepel::geom_text_repel(aes(label = label), nudge_y = 0.05, nudge_x = 1, na.rm = TRUE, parse = TRUE)
 
 
 ```
-**Figure 1: Probability of a stochastic extinction of an outbreak.** *add explanation of threshold at r0 = 1 and why low k (high dispersion) has higher probability of extinction compared to low dispersion)* Values of dispersion (k) are estimates from two studies of SARS-CoV-2 (solid lines are median and dashed lines are interval estimates; green - median 0.54 (0.14 - 6.54 90 % HDI) @riou_pattern_2020; purple - median 0.1 (0.05 - 0.2, 95 % CrI) @endo_estimating_2020). **b.**
+**Figure 1: Probability of a stochastic extinction of an outbreak for branching process model.** The probability of disease extinction depends on both on $R_0$ the average number of cases caused by single infected individual and $k$ the degree of superspreading (note that $k$ is inversely related to superspreading, such that small (large) k implies greater (lesser) contribution of superspreading as a cause of new infections). When the disease can spread in a population $(R_0 > 1)$, outbreaks that have greater degree of superspreading (smaller k) are more likely to go extinct than outbreaks with less superspreading (larger k) since most cases are caused by a highly infectious subset of individuals so the outbreak can collapse if these individuals, by chance, do not transmit much disease. When $R_0 < 1$ the probability of extinction is 1 regardless of the value of k because the number of new infections caused by existing cases is fewer than replacement by definition of $R_0$. Values of dispersion (k) used in calculations are estimates from two studies of SARS-CoV-2: solid lines are median and 95 % CrI values of posterior estimate of k from @endo_estimating_2020; dashed lines are are median and 90 % HDI values of posterior estimate of k from @riou_pattern_2020. **b.** The probability of extinction depends on the current number of infected individuals. If more individuals are currently infected, the probability of extinction is low even if $R_0$ is only slightly greater than 1. These calculations all used k = 0.1 [median posterior estimate @endo_estimating_2020].
 
 ```{r zn_plot}
 # final size
@@ -338,12 +340,35 @@ finalsize_df %>%
   geom_hline(aes(yintercept = 10), size = 1.5) +
   labs(title = "b. Distribution of total infections by 10th generation",
        y = "Total infections",
-       x = "Basic reproductive number (R0)")
+       x = expression(Basic ~ reproductive ~ number ~ (R[0])))
 
 ```
-** Figure 2: Comparison of total cases by 10th generation.** Each point is an independent simulation. 50 simulations were run for each value of $R_0$ and k = 0.16 for all simulations.
+
+**Figure 2: Comparison of total cases by 10th generation.** Each point is an independent simulation. 50 simulations were run for each value of $R_0$ and k = 0.16 for all simulations. I don't think this figure is necessary.
 
 <!-- should use the two median estimates of k for the size at n-th generation plot -->
+
+### Construct hypothesis test
+Making a slight modification to @phatarfod_sequential_1965 to allow for composite hypothesis testing of dependent observations let 
+
+\begin{align*}
+S_0 &= \log \left( \frac{p(x_0 | \theta \leq \theta_0 )}{p(x_0 | \theta > \theta_0)} \right) \\
+S_r &= \log \left( \frac{p(x_r | x_{r-1}, \theta \leq \theta_0 )}{p(x_r | x_{r-1}, \theta > \theta_0)}\right), r \geq 1 \\
+\end{align*}
+
+then the sequential probability ratio test (SPRT) for the composite hypothesis test $H_0: \theta > \theta_0 \text{ against } H_1: \theta \leq \theta_0$ is
+
+\begin{align*}
+\phi(x_n) = 
+    \begin{cases}
+      \text{reject } H_0  & \Sigma^{n}_{r = 0} S_r > \log(A)\\
+      \text{accept } H_0 & \Sigma^{n}_{r = 0} S_r \leq \log(B)
+    \end{cases}
+\end{align*}
+
+The thresholds are set following Wald's method such that $A \sim \frac{1-\beta}{\alpha}$ and $B \sim \frac{\beta}{1-\alpha}$ where $\alpha$ and $\beta$ is the probabilities of type I and II error, respectively.
+
+In our case, the parameter ($\theta$) of interest is $R(t)$. When $S_r > \log(A)$ the decision maker concludes that it is unsafe to reopen and when $S_r \leq \log (B)$. This should have an advantage over the criteria that have been proposed on purely heuristic grounds since the decision maker is able to set choose the type I and II error rates whereas the error rates of the proposed criteria are uncontrolled and unknown. Another likely justification is that the SPRT may be the optimal test for this problem class (it is for the case where observations are iid, not sure about the markov dependence case).
 
 ```{r likelihood, results = 'hide'}
 # if it is true that for X_i ~ NB(mu, k) iid that sum(X_i) ~ NB(sum(mu), sum(k)) then the P( x_{t+1} | x_t, theta ) is 
@@ -368,14 +393,22 @@ likelihood(x_prev = 10, x_now = 20, disp = 0.16, interval = c(1, 2.5))
 
 ```
 
-```{r calculate_sprt, results = 'hide'}
+```{r calculate_sprt, results = 'hide', cache = TRUE}
 set.seed(123)
-testdf <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont, nsim = 1)
+testdf <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont, nsim = 100)
 
 testdf$lik0 <- NA
 testdf$lik1 <- NA
 
+sim_number <- 1
 for (i in 2:nrow(testdf)) {
+  
+  if (testdf[i, "simulation"] == sim_number + 1) {
+  # skip calculation of likelihood for the first observation in each simluation
+      sim_number <- sim_number + 1
+    next
+  }
+  
   # observed states and known pars
   x0 <- unlist(testdf[i-1, "infected"])
   x1 <- unlist(testdf[i, "infected"])
@@ -396,6 +429,7 @@ for (i in 2:nrow(testdf)) {
 }
  
 test_sprt <- testdf %>%
+  group_by(simulation) %>%
   mutate(sr = log(lik1/lik0) ,
          sr = ifelse(is.na(sr), 0, sr),
          sprt = cumsum(sr),
@@ -415,7 +449,16 @@ b <- unique(test_sprt$b)
 sprt_reset[1] <- 0
 decision_reset[1] <- "?"
 
+sim_number <- 1
 for (i in 2:nrow(test_sprt)) {
+  
+  if (test_sprt[i, "simulation"] == sim_number + 1) {
+  # skip calculation of resetting sprt for the first observation in each simluation
+      sim_number <- sim_number + 1
+      sprt_reset[i] <- 0
+      decision_reset[i] <- "?"
+    next
+  }
   
   # if no decision has been made, update SPRT
   # otherwise, reset the SPRT
@@ -436,48 +479,68 @@ for (i in 2:nrow(test_sprt)) {
 test_sprt$sprt_reset <- sprt_reset
 test_sprt$decision_reset <- decision_reset
 
-test_sprt
+# test_sprt
 ```
-
-### Construct hypothesis test
-Making a slight modification to @phatarfod_sequential_1965 to allow for composite hypothesis testing of dependent observations let 
-
-\begin{align*}
-S_0 &= \log \left( \frac{p(x_0 | \theta \leq \theta_0 )}{p(x_0 | \theta > \theta_0)} \right) \\
-S_r &= \log \left( \frac{p(x_r | x_{r-1}, \theta \leq \theta_0 )}{p(x_r | x_{r-1}, \theta > \theta_0)}\right), r \geq 1 \\
-\end{align*}
-
-then the sequential probability ratio test (SPRT) for the composite hypothesis test $H_0: \theta > \theta_0 \text{ against } H_1: \theta \leq \theta_0$ is
-
-\begin{align*}
-\phi(x_n) = 
-    \begin{cases}
-      \text{reject } H_0  & \Sigma^{n}_{r = 0} S_r > \log(A)\\
-      \text{accept } H_0 & \Sigma^{n}_{r = 0} S_r \leq \log(B)
-    \end{cases}
-\end{align*}
-
-The thresholds are set following Wald's method such that $A \sim \frac{1-\beta}{\alpha}$ and $B \sim \frac{\beta}{1-\alpha}$ where $\alpha$ and $\beta$ is the probabilities of type I and II error, respectively.
-
-In our case, the parameter ($\theta$) of interest is $R(t)$. When $S_r > \log(A)$ the decision maker concludes that it is unsafe to reopen and when $S_r \leq \log (B)$. This should have an advantage over the criteria that have been proposed on purely heuristic grounds since the decision maker is able to set choose the type I and II error rates whereas the error rates of the proposed criteria are uncontrolled and unknown. Another likely justification is that the SPRT may be the optimal test for this problem class (it is for the case where observations are iid, not sure about the markov dependence case).
 
 ```{r plot_sprt, out.width = "50%", fig.show = 'hold'}
 test_sprt %>%
   ggplot() +
-  geom_line(aes(x = time, y = sprt)) +
-  geom_point(aes(x = time, y = sprt, col = decision), size = 2) +
+  geom_line(aes(x = time, y = sprt, group = simulation)) +
+  geom_point(aes(x = time, y = sprt, group = simulation, col = decision), size = 2) +
   geom_hline(aes(yintercept = a), linetype = "dashed") +
   geom_hline(aes(yintercept = b), linetype = "dashed") +
   labs(title = "SPRT without resetting",
-       caption = "Previous confirmation of H0 overwhelms new information that is consistent with H1")
+       # caption = "Previous confirmation of H0 overwhelms new information that is consistent with H1",
+       y = expression(Test ~ statistic ~ (S[t])),
+       x = "Generation number (t)") +
+  my_theme()
 
 test_sprt %>%
   ggplot() +
-  geom_line(aes(x = time, y = sprt_reset)) +
-  geom_point(aes(x = time, y = sprt_reset, col = decision_reset), size = 2) +
+  geom_line(aes(x = time, y = sprt_reset, group = simulation)) +
+  geom_point(aes(x = time, y = sprt_reset, group = simulation, col = decision_reset), size = 2) +
   geom_hline(aes(yintercept = a), linetype = "dashed") +
   geom_hline(aes(yintercept = b), linetype = "dashed") +
-  labs(title = "SPRT with resetting")
+  labs(title = "SPRT with resetting",       
+       y = expression(Test ~ statistic ~ (S[t])),
+       x = "Generation number (t)") +
+  my_theme()
+```
+**Figure 3: Sequentially testing ** 
+$\boldsymbol{H_0: R_t > 1}$ 
+**versus** 
+$\boldsymbol{H_1: R_t \leq 1}$**.**
+a. $H_0$ is rapidly accepted by the SPRT; however, it is slow to register a change in $R_t$ at $t = 11$ and falsely accepts $H_0$ when $H_1: R_t < 1$ is true because of the previous evidence that accumulated against $H-1$. b. When the SPRT is restarted after every decision is made about $H_0$ versus $H_1$ the test is able to quickely detect changes. However, it is unclear what repeatedly restarting tests does to the type I and II error rates ($\alpha, \beta$) set by the decision maker.
+
+
+```{r plot_reset_sprt, warning = FALSE, out.width = "50%", fig.show = 'hold'}
+test_sprt %>%
+  group_by(time) %>%
+  count(decision_reset) %>%
+  complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
+  ggplot() +
+  geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill") +
+  labs(title = "Conclusions of of reset SPRT over time",
+       subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+       y = "proportion of simulations",
+       x = "outbreak generation (t)",
+       fill = "decision") +
+  my_theme()
+
+test_sprt %>%
+  ggplot() +
+  geom_line(aes(x = time, y = infected, group = simulation)) +
+  geom_point(aes(x = time, y = infected, group = simulation, col = decision_reset)) +
+  scale_y_log10() +
+  labs(title = "Outbreak sizes and decisions",
+       x = "outbreak generation (t)",
+       col = "decision") + 
+  my_theme()
+  
+```
+
+```{r}
+
 ```
 
 
@@ -498,7 +561,7 @@ icub %>%
 
 # Assessment of 14-day rule
 
-Before we can assess the performance of the 14-day rule we must translate the total cases per generation into cases per day. TO do so, we draw symptom onset dates from a log normal distribution `rlnorm(n = infected, meanlog = 1.621, sdlog = 0.418)` using parameters estimated by @lauer_incubation_2020. This procedure assumes that onset of symptoms is independent across cases which seems reasonable. However, it also assumes that all individuals in a generation were exposed at the exact same time, which creates strong biweekly seasonality in cases per day as seen in the following plots. To avoid this modeling artifact, I will need to also simulate the times of exposure in addition to onset of infectivity. An example of this is in @hellewell_feasibility_2020 ([code and r package](https://github.com/cmmid/ringbp)).
+Before we can assess the performance of the 14-day rule we must translate the total cases per generation into cases per day. To do this we draw symptom onset dates from a log normal distribution `rlnorm(n = infected, meanlog = 1.621, sdlog = 0.418)` using parameters estimated by @lauer_incubation_2020. This procedure assumes that onset of symptoms is independent across cases which seems reasonable. However, it also assumes that all individuals in a generation were exposed at the exact same time. This assumption produces strong seasonality in cases per day because the probability of symptom onset is (see . To avoid this modeling artifact, I will need to also simulate the times of exposure in addition to onset of infectivity. An example of this is in @hellewell_feasibility_2020 ([code and r package](https://github.com/cmmid/ringbp)).
 
 ```{r assign_inf_onset, , out.width = "50%", fig.show = 'hold'}
 # simulate onset time of infectiousness
@@ -506,6 +569,7 @@ outbreak_inc <- outbreak %>%
   filter(simulation %in% 1:20) %>% # only do first 20 since the per_day and df calculations can take a while (setup dependency/cache later)
   rowwise() %>%
   mutate(inf_day = list(rlnorm(n = infected, meanlog = 1.621, sdlog = 0.418)) ) %>%
+  # mutate(inf_day = list(rweibull(n = infected, shape = 2.453, scale = 6.258))) %>%
   # ok to truncate at 14 days since 
   # plnorm(q = 14, meanlog = 1.621, sdlog = 0.418) # = 0.992
   # summarize(max_incubation = sum(inf_day > 14)/infected) # at most ~ 1 % individuals ever have incubation times > 14 days
@@ -522,30 +586,31 @@ df <-
   per_day %>% complete(nesting(inf_day = 1:14), fill = list(n = 0)) %>%
   group_by(simulation) %>% mutate(day = row_number())
 ```
-
-
 ```{r plot_symptom_onset_per_day, out.width = "50%", fig.show = 'hold'}
 filter(df, simulation == 10) %>%
 ggplot(aes(x = day, y = n, col = inf_day)) +
   geom_point() + viridis::scale_color_viridis() +
   labs(title = "Cases per day for the 10th simulation",
        caption = "Each generation is infected on same day and incubation is log-normal",
-       y = "no. of individuals that become symptomatic") +
-  theme_minimal()
+       y = "no. of new symptomatic cases") +
+  my_theme()
 
 ggplot(df, aes(x = day, y = n, group = simulation, col = as.factor(simulation))) +
   geom_line(alpha = 0.4) +
   labs(title = "Cases per day across 20 independent simulations",
        caption = "Each generation is infected on same day and incubation is log-normal",
-       y = "no. of individuals that become symptomatic") +
-  theme_minimal() +
+       y = "no. of new symptomatic cases") +
+  my_theme() +
   theme(legend.position = "none")
   
 
 ```
 
+**Figure 4: Model assumptions cause spurious seasonality in new cases.** Perhaps modeling the time of infection will fix this problem.
 
 # References {-}
+
+<!-- https://stackoverflow.com/questions/51335125/adding-figures-and-tables-after-bibliography-in-rmarkdown -->
 
 <div id="refs"></div>
 
