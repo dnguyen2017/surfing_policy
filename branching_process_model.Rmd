@@ -644,11 +644,19 @@ rejection <- c(0, thresh_R)
 acceptance <- c(thresh_R + 10^-6, 2.5)
 
 set.seed(123)
-df_lin <- episim(t = t, i_0 = 10^2, r0 = r_linear, disp = disp, cont = cont, nsim = 100)
+df_lin_high <- episim(t = t, i_0 = 10^2, r0 = r_linear, disp = disp, cont = cont, nsim = 100)
+df_lin_low <- episim(t = t, i_0 = 10^1, r0 = r_linear, disp = disp, cont = cont, nsim = 100)
 ```
 
-```{r plot_lin_rt, warning = FALSE}
-df_lin %>%
+```{r plot_lin_rt, warning = FALSE, out.width = "50%", fig.show = 'hold'}
+df_lin_low %>%
+  ggplot() +
+  geom_line(aes(x = time, y = infected, group = simulation)) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), col = "red", linetype = "dashed") +
+  geom_vline(aes(xintercept = which(r_linear == 1))) +
+  scale_y_log10()
+
+df_lin_high %>%
   ggplot() +
   geom_line(aes(x = time, y = infected, group = simulation)) +
   geom_vline(aes(xintercept = which(r_linear == 0.7)), col = "red", linetype = "dashed") +
@@ -657,9 +665,10 @@ df_lin %>%
 ```
 
 ```{r calc_sprt_lineardecrease}
-lin_sprt <- calc_sr(df_lin, accept_reg = acceptance, reject_reg = rejection)
+lin_high_sprt <- calc_sr(df_lin_high, accept_reg = acceptance, reject_reg = rejection)
+lin_low_sprt <- calc_sr(df_lin_low, accept_reg = acceptance, reject_reg = rejection)
 
-lin_sprt <- lin_sprt %>%
+lin_high_sprt <- lin_high_sprt %>%
   group_by(simulation) %>%
   mutate(sr = log(lik1/lik0) ,
          sr = ifelse(is.na(sr), 0, sr),
@@ -670,12 +679,34 @@ lin_sprt <- lin_sprt %>%
                               sprt > a ~ "H1",
                               sprt < b ~ "H0"))
 
-lin_sprt <- calc_reset_sr(lin_sprt)
+lin_low_sprt <- lin_low_sprt %>%
+  group_by(simulation) %>%
+  mutate(sr = log(lik1/lik0) ,
+         sr = ifelse(is.na(sr), 0, sr),
+         sprt = cumsum(sr),
+         a = log( (1 - 0.05)/ 0.05),
+         b = log(0.05/(1 - 0.05)),
+         decision = case_when(sprt <= a & sprt >= b ~"?",
+                              sprt > a ~ "H1",
+                              sprt < b ~ "H0"))
+
+lin_high_sprt <- calc_reset_sr(lin_high_sprt)
+lin_low_sprt <- calc_reset_sr(lin_low_sprt)
+
 
 ```
 
-```{r}
-lin_sprt %>%
+```{r plot_performance_lin_rt, out.width='50%', fig.show = 'hold'}
+lin_low_sprt %>%
+  group_by(time) %>%
+  count(decision_reset) %>%
+  complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
+  ggplot() +
+  geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill") +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), col = "red", linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) 
+
+lin_high_sprt %>%
   group_by(time) %>%
   count(decision_reset) %>%
   complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
