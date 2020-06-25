@@ -558,11 +558,8 @@ break_low_sprt %>%
        x = "outbreak generation (t)",
        col = "decision") + 
   my_theme()
-  
-threshold <- 5000
-break_low_sprt %>%
-  group_by(simulation) %>%
-  filter(max(infected) >= threshold) %>%
+
+break_high_sprt %>%
   ggplot() +
   geom_line(aes(x = time, y = infected, group = simulation)) +
   geom_point(aes(x = time, y = infected, group = simulation, col = decision_reset)) +
@@ -571,6 +568,19 @@ break_low_sprt %>%
        x = "outbreak generation (t)",
        col = "decision") + 
   my_theme()
+  
+# threshold <- 5000
+# break_low_sprt %>%
+#   group_by(simulation) %>%
+#   filter(max(infected) >= threshold) %>%
+#   ggplot() +
+#   geom_line(aes(x = time, y = infected, group = simulation)) +
+#   geom_point(aes(x = time, y = infected, group = simulation, col = decision_reset)) +
+#   scale_y_log10(breaks = c(1, 10, 100, 1000, 10000)) +
+#   labs(title = "Outbreak sizes and decisions",
+#        x = "outbreak generation (t)",
+#        col = "decision") + 
+#   my_theme()
 
 
 ```
@@ -589,41 +599,38 @@ break_low_sprt %>%
        fill = "decision") +
   my_theme()
 
-
-break_low_sprt %>%
-  group_by(simulation) %>%
-  mutate(bigenough = ifelse(max(infected) >= threshold , TRUE, FALSE)) %>%
-  ungroup() %>%
-  filter(bigenough == TRUE) %>% #View()
-  group_by(time, bigenough) %>%
-  count(decision_reset) %>% 
-  complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>% #View()
+break_high_sprt %>%
+  group_by(time) %>%
+  count(decision_reset) %>%
+  complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
   ggplot() +
   geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill") +
   labs(title = "Conclusions of of reset SPRT over time",
        subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
-       caption = "Subset of simulations where max(Xi >= 5000)",
        y = "proportion of simulations",
        x = "outbreak generation (t)",
        fill = "decision") +
   my_theme()
 
-```
 
+# break_low_sprt %>%
+#   group_by(simulation) %>%
+#   mutate(bigenough = ifelse(max(infected) >= threshold , TRUE, FALSE)) %>%
+#   ungroup() %>%
+#   filter(bigenough == TRUE) %>% #View()
+#   group_by(time, bigenough) %>%
+#   count(decision_reset) %>% 
+#   complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>% #View()
+#   ggplot() +
+#   geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill") +
+#   labs(title = "Conclusions of of reset SPRT over time",
+#        subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+#        caption = "Subset of simulations where max(Xi >= 5000)",
+#        y = "proportion of simulations",
+#        x = "outbreak generation (t)",
+#        fill = "decision") +
+#   my_theme()
 
-```{r inf_onset_times, eval = FALSE}
-# point estimates from: Lauer et al 2020. Ann. Int. Med https://www.acpjournals.org/doi/10.7326/M20-0504
-icub <- tibble(days = seq(0.5, 20, 0.5),
-               onset_ln = dlnorm(x = days, meanlog = 1.621, sdlog = 0.418),
-               onset_gamma = dgamma(x = days, shape =5.807, scale =0.948),
-               onset_weibull = dweibull(x = days, shape = 2.453, scale = 6.258))
-
-icub %>%
-  pivot_longer(cols = 2:4,
-               values_to = "probability",
-               names_to = "distribution") %>%
-  ggplot() +
-  geom_line(aes(x = days, y = probability, col = distribution))
 ```
 
 # Linearly decreasing $R_t$
@@ -683,6 +690,22 @@ lin_sprt %>%
 # Assessment of 14-day rule
 
 Before we can assess the performance of the 14-day rule we must translate the total cases per generation into cases per day. To do this we draw symptom onset dates from a log normal distribution `rlnorm(n = infected, meanlog = 1.621, sdlog = 0.418)` using parameters estimated by @lauer_incubation_2020. This procedure assumes that onset of symptoms is independent across cases which seems reasonable. However, it also assumes that all individuals in a generation were exposed at the exact same time. This assumption produces strong seasonality in cases per day because the probability of symptom onset is (see . To avoid this modeling artifact, I will need to also simulate the times of exposure in addition to onset of infectivity. An example of this is in @hellewell_feasibility_2020 ([code and r package](https://github.com/cmmid/ringbp)).
+
+```{r inf_onset_times, eval = FALSE}
+# point estimates from: Lauer et al 2020. Ann. Int. Med https://www.acpjournals.org/doi/10.7326/M20-0504
+icub <- tibble(days = seq(0.5, 20, 0.5),
+               onset_ln = dlnorm(x = days, meanlog = 1.621, sdlog = 0.418),
+               onset_gamma = dgamma(x = days, shape =5.807, scale =0.948),
+               onset_weibull = dweibull(x = days, shape = 2.453, scale = 6.258))
+
+icub %>%
+  pivot_longer(cols = 2:4,
+               values_to = "probability",
+               names_to = "distribution") %>%
+  ggplot() +
+  geom_line(aes(x = days, y = probability, col = distribution))
+```
+
 
 ```{r assign_inf_onset, , out.width = "50%", fig.show = 'hold'}
 # simulate onset time of infectiousness
