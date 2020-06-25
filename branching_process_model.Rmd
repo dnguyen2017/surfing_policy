@@ -522,7 +522,34 @@ $\boldsymbol{H_1: R_t \leq 1}$**.**
 a. $H_0$ is rapidly accepted by the SPRT; however, it is slow to register a change in $R_t$ at $t = 11$ and falsely accepts $H_0$ when $H_1: R_t < 1$ is true because of the previous evidence that accumulated against $H-1$. b. When the SPRT is restarted after every decision is made about $H_0$ versus $H_1$ the test is able to quickely detect changes. However, it is unclear what repeatedly restarting tests does to the type I and II error rates ($\alpha, \beta$) set by the decision maker.
 
 
-```{r plot_reset_sprt, warning = FALSE, out.width = "50%", fig.show = 'hold'}
+```{r decision_lineplot, warning = FALSE, out.width = "50%", fig.show = 'hold'}
+test_sprt %>%
+  ggplot() +
+  geom_line(aes(x = time, y = infected, group = simulation)) +
+  geom_point(aes(x = time, y = infected, group = simulation, col = decision_reset)) +
+  scale_y_log10(breaks = c(1, 10, 100, 1000, 10000)) +
+  labs(title = "Outbreak sizes and decisions",
+       x = "outbreak generation (t)",
+       col = "decision") + 
+  my_theme()
+  
+threshold <- 5000
+test_sprt %>%
+  group_by(simulation) %>%
+  filter(max(infected) >= threshold) %>%
+  ggplot() +
+  geom_line(aes(x = time, y = infected, group = simulation)) +
+  geom_point(aes(x = time, y = infected, group = simulation, col = decision_reset)) +
+  scale_y_log10(breaks = c(1, 10, 100, 1000, 10000)) +
+  labs(title = "Outbreak sizes and decisions",
+       x = "outbreak generation (t)",
+       col = "decision") + 
+  my_theme()
+
+
+```
+
+```{r decision_barplot, out.width = "50%", fig.show = 'hold'}
 test_sprt %>%
   group_by(time) %>%
   count(decision_reset) %>%
@@ -536,19 +563,24 @@ test_sprt %>%
        fill = "decision") +
   my_theme()
 
-test_sprt %>%
-  ggplot() +
-  geom_line(aes(x = time, y = infected, group = simulation)) +
-  geom_point(aes(x = time, y = infected, group = simulation, col = decision_reset)) +
-  scale_y_log10() +
-  labs(title = "Outbreak sizes and decisions",
-       x = "outbreak generation (t)",
-       col = "decision") + 
-  my_theme()
-  
-```
 
-```{r}
+test_sprt %>%
+  group_by(simulation) %>%
+  mutate(bigenough = ifelse(max(infected) >= threshold , TRUE, FALSE)) %>%
+  ungroup() %>%
+  filter(bigenough == TRUE) %>% #View()
+  group_by(time, bigenough) %>%
+  count(decision_reset) %>% 
+  complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>% #View()
+  ggplot() +
+  geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill") +
+  labs(title = "Conclusions of of reset SPRT over time",
+       subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+       caption = "Subset of simulations where max(Xi >= 5000)",
+       y = "proportion of simulations",
+       x = "outbreak generation (t)",
+       fill = "decision") +
+  my_theme()
 
 ```
 
