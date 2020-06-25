@@ -448,46 +448,56 @@ test_sprt <- testdf %>%
                               sprt > a ~ "H1",
                               sprt < b ~ "H0"))
 
-sprt_reset <- vector("numeric", length = nrow(test_sprt))
-decision_reset <- vector("character", length = nrow(test_sprt))
-
-sr <- test_sprt$sr
-a <- unique(test_sprt$a)
-b <- unique(test_sprt$b)
+calc_reset_sr <- function(data) {
   
-sprt_reset[1] <- 0
-decision_reset[1] <- "?"
-
-sim_number <- 1
-for (i in 2:nrow(test_sprt)) {
+  # init vectors to hold reset sprt (cumulative sr) and decision
+  sprt_reset <- vector("numeric", length = nrow(data))
+  decision_reset <- vector("character", length = nrow(data))
   
-  if (test_sprt[i, "simulation"] == sim_number + 1) {
-  # skip calculation of resetting sprt for the first observation in each simluation
+  # init data
+  sr <- data$sr
+  a <- unique(data$a)
+  b <- unique(data$b)
+  
+  # both models are equally likely for first observation
+  sprt_reset[1] <- 0
+  decision_reset[1] <- "?"
+  
+  sim_number <- 1
+  for (i in 2:nrow(data)) {
+    
+    if (data[i, "simulation"] == sim_number + 1) {
+      # skip calculation of resetting sprt for the first observation in each simluation
       sim_number <- sim_number + 1
       sprt_reset[i] <- 0
       decision_reset[i] <- "?"
-    next
+      next
+    }
+    
+    # if no decision has been made, update SPRT
+    # otherwise, reset the SPRT
+    ifelse(decision_reset[i] == "?",
+           sprt_reset[i] <- sprt_reset[i-1] + sr[i],
+           sprt_reset[i] <- sr[i])
+    
+    # if SPRT has crossed bounds, make decision
+    # otherwise continue sampling
+    ifelse(sprt_reset[i] < b
+           ,{decision_reset[i] <- "H0"}#; sprt_reset[i+1] <- sr[i+1]; next}
+           ,ifelse(sprt_reset[i] > a
+                   ,{decision_reset[i] <- "H1"}#; sprt_reset[i+1] <- sr[i+1]; next}
+                   ,{decision_reset[i] <- "?"})
+    )
   }
   
-  # if no decision has been made, update SPRT
-  # otherwise, reset the SPRT
-  ifelse(decision_reset[i] == "?",
-         sprt_reset[i] <- sprt_reset[i-1] + sr[i],
-         sprt_reset[i] <- sr[i])
+  # attach reset sprt calculations and decisions to df
+  data$sprt_reset <- sprt_reset
+  data$decision_reset <- decision_reset
   
-  # if SPRT has crossed bounds, make decision
-  # otherwise continue sampling
-  ifelse(sprt_reset[i] < b
-         ,{decision_reset[i] <- "H0"}#; sprt_reset[i+1] <- sr[i+1]; next}
-         ,ifelse(sprt_reset[i] > a
-                 ,{decision_reset[i] <- "H1"}#; sprt_reset[i+1] <- sr[i+1]; next}
-                 ,{decision_reset[i] <- "?"})
-         )
+  return(data)
 }
 
-test_sprt$sprt_reset <- sprt_reset
-test_sprt$decision_reset <- decision_reset
-
+test_sprt <- calc_reset_sr(test_sprt)
 # test_sprt
 ```
 
