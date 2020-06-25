@@ -396,36 +396,46 @@ likelihood <- function (x_prev, x_now, disp, interval = c(), guess = 1.5) {
 set.seed(123)
 testdf <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont, nsim = 100)
 
-testdf$lik0 <- NA
-testdf$lik1 <- NA
 
-sim_number <- 1
-for (i in 2:nrow(testdf)) {
+calc_sr <- function(data, accept_reg = c(1 + 10^-6, 2.5), reject_reg = c(0, 1)) {
   
-  if (testdf[i, "simulation"] == sim_number + 1) {
-  # skip calculation of likelihood for the first observation in each simluation
-      sim_number <- sim_number + 1
-    next
-  }
-  
-  # observed states and known pars
-  x0 <- unlist(testdf[i-1, "infected"])
-  x1 <- unlist(testdf[i, "infected"])
-  disp <- unlist(testdf[i-1, "disp_true"])
+  # initialize empty columns for likelihood calculations
+  data$lik0 <- NA
+  data$lik1 <- NA
   
   # parameter space
-  theta0 <- c(1 + 10^-6, 2.5) # acceptance
-  theta1 <- c(0, 1)           # rejection
-  # init guess for optim
-  guess0 <- 1.5
-  guess1 <- 0.5
+  theta0 <- accept_reg
+  theta1 <- reject_reg
   
-  # likelihood calculation
-  testdf[i,"lik0"] <- likelihood(x_prev = x0, x_now = x1, disp = disp,  # p(x_now | x_prev, disp, theta \in Theta_0)
-                     interval = theta0, guess = guess0)
-  testdf[i,"lik1"] <- likelihood(x_prev = x0, x_now = x1, disp = disp,  # p(x_now | x_prev, disp, theta \in Theta_1)
-                     interval = theta1, guess = guess1)
+  # use midpoint of interval as init guess for optim (Brent's method)
+  guess0 <- accept_reg[1] + (accept_reg[2] - accept_reg[1]) / 2 
+  guess1 <- reject_reg[1] + (reject_reg[2] - reject_reg[1]) / 2 
+  
+  sim_number <- 1
+  for (i in 2:nrow(data)) {
+    
+    if (data[i, "simulation"] == sim_number + 1) {
+      # skip calculation of likelihood for the first observation in each simluation
+      sim_number <- sim_number + 1
+      next
+    }
+    
+    # observed states and known pars
+    x0 <- unlist(data[i-1, "infected"])
+    x1 <- unlist(data[i, "infected"])
+    disp <- unlist(data[i-1, "disp_true"])
+    
+    # likelihood calculation
+    data[i,"lik0"] <- likelihood(x_prev = x0, x_now = x1, disp = disp,  # p(x_now | x_prev, disp, theta \in Theta_0)
+                                   interval = theta0, guess = guess0)
+    data[i,"lik1"] <- likelihood(x_prev = x0, x_now = x1, disp = disp,  # p(x_now | x_prev, disp, theta \in Theta_1)
+                                   interval = theta1, guess = guess1)
+  }
+  
+  return(data)
 }
+
+testdf <- calc_sr(testdf)
  
 test_sprt <- testdf %>%
   group_by(simulation) %>%
