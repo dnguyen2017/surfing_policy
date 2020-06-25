@@ -49,7 +49,7 @@ X_{t+1} & \sim \Sigma^{Z_t}_{i=1}X_i \\
             & \sim NB(\Sigma^{X_t}_{i=1} R(t), \Sigma^{X_t}_{i=1} k)
 \end{align*}
 
-where the step size is chosen here to be the incubation period, 14 days (not sure how reasonable this is). 
+where the step size is chosen here to be the incubation period, 14 days. 
 
 ```{r check_dist, eval = FALSE}
 # numerically test claim that the previous two distributions are the same
@@ -98,7 +98,7 @@ episim <- function (t, i_0, r0, disp, cont, nsim) {
 # set params and init conds
 t <- 1:20
 r0 <- c(rep(2, 10), rep(0.9, 10)) # lockdown starts at t = 11
-disp <- 0.14 # median of posterior estimate of k for SARS-CoV-2 (Riou and Althaus 2020)
+disp <- 0.10 # median of posterior estimate of k for SARS-CoV-2 (Endo et al. 2020)
 i_0 <- 10
 cont <- 0
 n <- 100
@@ -107,7 +107,7 @@ n <- 100
 outbreak <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont, nsim = n)
 ```
 
-Here are some example simulations of this model. Control is implemented at the 11^th^ time step.
+<!-- Here are some example simulations of this model. Control is implemented at the 11^th^ time step. -->
 
 ```{r plot_example_branching_proc, out.width = "50%", fig.show = 'hold', eval = FALSE}
 # Plot simulations
@@ -379,7 +379,6 @@ objfn <- function(r, x1, x0, dispersion) {
   dnbinom(x = x1, mu = x0*r, size = x0*dispersion)
 }
 
-mean(replicate(100, rnbinom(n = 1, mu = 10*2, size = 10*0.16)))
 
 #  find restricted MLE under h_0 or h_1
 likelihood <- function (x_prev, x_now, disp, interval = c(), guess = 1.5) {
@@ -389,7 +388,7 @@ likelihood <- function (x_prev, x_now, disp, interval = c(), guess = 1.5) {
   return(opt$value)
 }
 
-likelihood(x_prev = 10, x_now = 20, disp = 0.16, interval = c(1, 2.5))
+#likelihood(x_prev = 10, x_now = 20, disp = 0.16, interval = c(1, 2.5))
 
 ```
 
