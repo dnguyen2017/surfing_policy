@@ -99,12 +99,12 @@ episim <- function (t, i_0, r0, disp, cont, nsim) {
 t <- 1:20
 r0 <- c(rep(2, 10), rep(0.9, 10)) # lockdown starts at t = 11
 disp <- 0.10 # median of posterior estimate of k for SARS-CoV-2 (Endo et al. 2020)
-i_0 <- 10
+i_0 <- 100
 cont <- 0
 n <- 100
 
 # simulate
-outbreak <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont, nsim = n)
+# outbreak <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont, nsim = n)
 ```
 
 <!-- Here are some example simulations of this model. Control is implemented at the 11^th^ time step. -->
@@ -394,8 +394,8 @@ likelihood <- function (x_prev, x_now, disp, interval = c(), guess = 1.5) {
 
 ```{r calculate_sprt, results = 'hide', cache = TRUE}
 set.seed(123)
-testdf <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont, nsim = 100)
-
+df_break_high <- episim(t = t, i_0 = 100, r0 = r0, disp = disp, cont = cont, nsim = 100)
+df_break_low <- episim(t = t, i_0 = 10, r0 = r0, disp = disp, cont = cont, nsim = 100)
 
 calc_sr <- function(data, accept_reg = c(1 + 10^-6, 2.5), reject_reg = c(0, 1)) {
   
@@ -435,9 +435,10 @@ calc_sr <- function(data, accept_reg = c(1 + 10^-6, 2.5), reject_reg = c(0, 1)) 
   return(data)
 }
 
-testdf <- calc_sr(testdf)
- 
-test_sprt <- testdf %>%
+df_break_high <- calc_sr(df_break_high)
+df_break_low <- calc_sr(df_break_low) 
+
+break_high_sprt <- df_break_high %>%
   group_by(simulation) %>%
   mutate(sr = log(lik1/lik0) ,
          sr = ifelse(is.na(sr), 0, sr),
@@ -447,6 +448,18 @@ test_sprt <- testdf %>%
          decision = case_when(sprt <= a & sprt >= b ~"?",
                               sprt > a ~ "H1",
                               sprt < b ~ "H0"))
+
+break_low_sprt <- df_break_low %>%
+  group_by(simulation) %>%
+  mutate(sr = log(lik1/lik0) ,
+         sr = ifelse(is.na(sr), 0, sr),
+         sprt = cumsum(sr),
+         a = log( (1 - 0.05)/ 0.05),
+         b = log(0.05/(1 - 0.05)),
+         decision = case_when(sprt <= a & sprt >= b ~"?",
+                              sprt > a ~ "H1",
+                              sprt < b ~ "H0"))
+
 
 calc_reset_sr <- function(data) {
   
@@ -497,12 +510,13 @@ calc_reset_sr <- function(data) {
   return(data)
 }
 
-test_sprt <- calc_reset_sr(test_sprt)
+break_high_sprt <- calc_reset_sr(break_high_sprt)
+break_low_sprt <- calc_reset_sr(break_low_sprt)
 # test_sprt
 ```
 
 ```{r plot_sprt, out.width = "50%", fig.show = 'hold'}
-test_sprt %>%
+break_low_sprt %>%
   filter(simulation %in% 1:10) %>%
   ggplot() +
   geom_line(aes(x = time, y = sprt, group = simulation)) +
@@ -515,7 +529,7 @@ test_sprt %>%
        x = "Generation number (t)") +
   my_theme()
 
-test_sprt %>%
+break_low_sprt %>%
   filter(simulation %in% 1:10) %>%
   ggplot() +
   geom_line(aes(x = time, y = sprt_reset, group = simulation)) +
@@ -535,7 +549,7 @@ a. $H_0$ is rapidly accepted by the SPRT; however, it is slow to register a chan
 
 
 ```{r decision_lineplot, warning = FALSE, out.width = "50%", fig.show = 'hold'}
-test_sprt %>%
+break_low_sprt %>%
   ggplot() +
   geom_line(aes(x = time, y = infected, group = simulation)) +
   geom_point(aes(x = time, y = infected, group = simulation, col = decision_reset)) +
@@ -546,7 +560,7 @@ test_sprt %>%
   my_theme()
   
 threshold <- 5000
-test_sprt %>%
+break_low_sprt %>%
   group_by(simulation) %>%
   filter(max(infected) >= threshold) %>%
   ggplot() +
@@ -562,7 +576,7 @@ test_sprt %>%
 ```
 
 ```{r decision_barplot, out.width = "50%", fig.show = 'hold'}
-test_sprt %>%
+break_low_sprt %>%
   group_by(time) %>%
   count(decision_reset) %>%
   complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
@@ -576,7 +590,7 @@ test_sprt %>%
   my_theme()
 
 
-test_sprt %>%
+break_low_sprt %>%
   group_by(simulation) %>%
   mutate(bigenough = ifelse(max(infected) >= threshold , TRUE, FALSE)) %>%
   ungroup() %>%
@@ -672,7 +686,7 @@ Before we can assess the performance of the 14-day rule we must translate the to
 
 ```{r assign_inf_onset, , out.width = "50%", fig.show = 'hold'}
 # simulate onset time of infectiousness
-outbreak_inc <- outbreak %>% 
+outbreak_inc <- df_break_low %>% 
   filter(simulation %in% 1:20) %>% # only do first 20 since the per_day and df calculations can take a while (setup dependency/cache later)
   rowwise() %>%
   mutate(inf_day = list(rlnorm(n = infected, meanlog = 1.621, sdlog = 0.418)) ) %>%
