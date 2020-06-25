@@ -493,6 +493,7 @@ test_sprt$decision_reset <- decision_reset
 
 ```{r plot_sprt, out.width = "50%", fig.show = 'hold'}
 test_sprt %>%
+  filter(simulation %in% 1:10) %>%
   ggplot() +
   geom_line(aes(x = time, y = sprt, group = simulation)) +
   geom_point(aes(x = time, y = sprt, group = simulation, col = decision), size = 2) +
@@ -505,6 +506,7 @@ test_sprt %>%
   my_theme()
 
 test_sprt %>%
+  filter(simulation %in% 1:10) %>%
   ggplot() +
   geom_line(aes(x = time, y = sprt_reset, group = simulation)) +
   geom_point(aes(x = time, y = sprt_reset, group = simulation, col = decision_reset), size = 2) +
