@@ -743,10 +743,10 @@ lin_low_sprt %>%
   count(decision_reset) %>%
   complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
   ggplot() +
-  geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill") +
+  geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill", width = 1) +
   geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
   geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
-  viridis::scale_fill_viridis(discrete = TRUE) +
+  viridis::scale_fill_viridis(discrete = TRUE, alpha = 0.7) +
   labs(title = "c",#title = "Conclusions of of reset SPRT over time",
        #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
        y = "Proportion of simulations",
@@ -759,7 +759,7 @@ lin_high_sprt %>%
   count(decision_reset) %>%
   complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
   ggplot() +
-  geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill") +
+  geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill", width = 1) +
   geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
   geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
   labs(title = "d",#title = "Conclusions of of reset SPRT over time",
