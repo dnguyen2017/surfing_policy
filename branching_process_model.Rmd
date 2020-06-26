@@ -13,14 +13,14 @@ library(tidyverse)
 my_theme <- function(...) theme_minimal(base_size = 15) 
 ```
 
-# Motivation
+<!-- # Motivation -->
 
 <!-- focus on the epidemiology and translate that into the relevant acceptance and rejection regions for re-opening. Don't worry too much about translating proposed re-opening guidelines into a hypothesis testing problem. It is enough to point out that they are trying to satisfy some objectives (NY has a very specific and concise list of objectives) -->
 
-To safely determine when to lift COVID-19 lockdowns decision makers must know if the outbreak is sufficiently controlled and if there is adequate test and trace capacity to prevent a resurgence of cases following reopening. To support this need, criteria that should be satisfied to ensure it is safe to reopen have been proposed by policy, government, and academic entities [ex. @gottlieb_national_2020, @prevent_epidemics_adaptive_2020, @white_house_opening_2020]. A common criterion among reopening guidelines to determine if an outbreak is sufficiently controlled is a 14 day decrease in reported cases. This criterion was initially proposed in the American Enterprise Institute national reopening plan [page 3 @gottlieb_national_2020], possibly based on the reasoning that decreasing cases implies that the outbreak is controlled and the 14-day duration was chosen because most exposed individuals become infectious within 14 days [@lauer_incubation_2020]. To determine if there is adequate test and trace capacity some guidelines have proposed thresholds for the number of tests and contact tracers that are needed by population, e.g.,  a weekly average of 30 tests per 1,000 residents and 30 contact tracers per 100,000 residents ([NY Forward 2020](https://www.governor.ny.gov/sites/governor.ny.gov/files/atoms/files/NYForwardReopeningGuide.pdf)). These criteria and others are tests of the hypothesis that it unsafe (null) or safe (alternative) to reopen from lockdown. However, it is unclear what rejection region is implied by these tests, the performance of these hypothesis tests, or how they may compare to alternative tests. Consequently, it is unclear how statistically or epidemiologically justifiable these proposed reopening critera are. 
+<!-- To safely determine when to lift COVID-19 lockdowns decision makers must know if the outbreak is sufficiently controlled and if there is adequate test and trace capacity to prevent a resurgence of cases following reopening. To support this need, criteria that should be satisfied to ensure it is safe to reopen have been proposed by policy, government, and academic entities [ex. @gottlieb_national_2020, @prevent_epidemics_adaptive_2020, @white_house_opening_2020]. A common criterion among reopening guidelines to determine if an outbreak is sufficiently controlled is a 14 day decrease in reported cases. This criterion was initially proposed in the American Enterprise Institute national reopening plan [page 3 @gottlieb_national_2020], possibly based on the reasoning that decreasing cases implies that the outbreak is controlled and the 14-day duration was chosen because most exposed individuals become infectious within 14 days [@lauer_incubation_2020]. To determine if there is adequate test and trace capacity some guidelines have proposed thresholds for the number of tests and contact tracers that are needed by population, e.g.,  a weekly average of 30 tests per 1,000 residents and 30 contact tracers per 100,000 residents ([NY Forward 2020](https://www.governor.ny.gov/sites/governor.ny.gov/files/atoms/files/NYForwardReopeningGuide.pdf)). These criteria and others are tests of the hypothesis that it unsafe (null) or safe (alternative) to reopen from lockdown. However, it is unclear what rejection region is implied by these tests, the performance of these hypothesis tests, or how they may compare to alternative tests. Consequently, it is unclear how statistically or epidemiologically justifiable these proposed reopening critera are.  -->
 <!-- estimated that the 97.5 percentile of the incubation period distribution is 11.5 days (CI, 8.2 to 15.6 days)) -->
 
-In this proposal I will address the problem of identifying when it is safe to phase out of lockdowns by developing epidemiologically justifiable hypothesis tests that can be used to set defensible criteria for reopening. 
+<!-- In this proposal I will address the problem of identifying when it is safe to phase out of lockdowns by developing epidemiologically justifiable hypothesis tests that can be used to set defensible criteria for reopening.  -->
 
 <!-- 1. precisely identify the parameter region for which an epidemic is controlled enough to begin reopening -->
 <!-- 2. develop a simple hypothesis test for identifying when a local epidemic is sufficiently controlled -->
@@ -31,11 +31,11 @@ In this proposal I will address the problem of identifying when it is safe to ph
 <!-- In this proposal I outline an approach to apply tools from sequential analysis to create statistically justified decision rules for guiding COVID-19 reopening decisions and will compare the performance of these rules with the heuristically chosen 14-day rule.  -->
 <!-- For instance, what is the false detection rate of this rule? Given that an outbreak is sufficiently controlled to begin reopening, how many days will it take for -->
 
-# Problem
+<!-- # Problem -->
 
-Let $\theta \in \Theta$ be parameter that determines the evolution of an epidemic and let $\Theta_0$ be the set of parameters for which lockdown is necessary (acceptance region) and $\Theta_1$ be the set of parameters for which lockdown may be phased out (rejection region). The decision maker sequentially observes a stream of data $x_0, x_1, x_2,\ldots$ from the outbreak and must decide if the unsafe to reopen ($\theta \in \Theta_0$) or if it is safe to open ($\theta \in \Theta_1$). We seek to develop a sequential hypothesis test ($\phi(X_n)$) with a controlled type I error rate ($\alpha$)  to make this decision (i.e., $P(\text{reject } H_0 | \theta \in \Theta_0) \leq \alpha$). To solve this problem we must first define a model which describes the time-evolution of the outbreak, define the acceptance and rejection regions, construct a hypothesis tests.
+<!-- Let $\theta \in \Theta$ be parameter that determines the evolution of an epidemic and let $\Theta_0$ be the set of parameters for which lockdown is necessary (acceptance region) and $\Theta_1$ be the set of parameters for which lockdown may be phased out (rejection region). The decision maker sequentially observes a stream of data $x_0, x_1, x_2,\ldots$ from the outbreak and must decide if the unsafe to reopen ($\theta \in \Theta_0$) or if it is safe to open ($\theta \in \Theta_1$). We seek to develop a sequential hypothesis test ($\phi(X_n)$) with a controlled type I error rate ($\alpha$)  to make this decision (i.e., $P(\text{reject } H_0 | \theta \in \Theta_0) \leq \alpha$). To solve this problem we must first define a model which describes the time-evolution of the outbreak, define the acceptance and rejection regions, construct a hypothesis tests. -->
 
-### Model
+# Model
 A reasonable model for the initial phase of an outbreak (i.e. ignoring the depletion of susceptibles) is: 
 
 \begin{align*}
@@ -130,18 +130,18 @@ ggplot() +
 ```
 
 
-### Define acceptance and rejection region
-*Under construction*
-To define the regions of parameter space for which it is safe ($\Theta_0$) or unsafe ($\Theta_1$) to phase out of lockdowns we must consider the effects of control on the outbreak. The branching process model can be modified to include the effect of lockdown (population-level control) and the effect of quarantine of contacts and isolation of positive-test cases (individual-level control).
+<!-- ### Define acceptance and rejection region -->
+<!-- *Under construction* -->
+<!-- To define the regions of parameter space for which it is safe ($\Theta_0$) or unsafe ($\Theta_1$) to phase out of lockdowns we must consider the effects of control on the outbreak. The branching process model can be modified to include the effect of lockdown (population-level control) and the effect of quarantine of contacts and isolation of positive-test cases (individual-level control). -->
 
-The effect of lockdown can be modeled with the modification $R(t) = (1-c(t) R_0$ where $c(t)$ is the proportional decrease in infectiousness caused by lockdown and $R_0$ is the expected number of secondary infections in the absence of control in a fully susceptible population. This assumes that lockdown decreases contacts, and thus infectiousness, of all individuals equally.
+<!-- The effect of lockdown can be modeled with the modification $R(t) = (1-c(t) R_0$ where $c(t)$ is the proportional decrease in infectiousness caused by lockdown and $R_0$ is the expected number of secondary infections in the absence of control in a fully susceptible population. This assumes that lockdown decreases contacts, and thus infectiousness, of all individuals equally. -->
 
-individual level control *is more complicated, need to look at the appendix of @lloyd-smith_superspreading_2005 more closely*.
+<!-- individual level control *is more complicated, need to look at the appendix of @lloyd-smith_superspreading_2005 more closely*. -->
 
-To define acceptance and rejection regions
+<!-- To define acceptance and rejection regions -->
 
-  * explanation of impact of control type and magnitude on outbreak dynamics (e.g., extinction probability)
-  * identify thresholds to determine $\Theta_0$ and $\Theta_1$
+<!--   * explanation of impact of control type and magnitude on outbreak dynamics (e.g., extinction probability) -->
+<!--   * identify thresholds to determine $\Theta_0$ and $\Theta_1$ -->
 
 ```{r extinction_prob, cache = TRUE} 
 # per supplement of lloyd-smith et al. 2005:
@@ -329,7 +329,7 @@ extinction_df %>%
 ```
 **Figure 1: Probability of a stochastic extinction of an outbreak for branching process model.** The probability of disease extinction depends on both on $R_0$ the average number of cases caused by single infected individual and $k$ the degree of superspreading (note that $k$ is inversely related to superspreading, such that small (large) k implies greater (lesser) contribution of superspreading as a cause of new infections). When the disease can spread in a population $(R_0 > 1)$, outbreaks that have greater degree of superspreading (smaller k) are more likely to go extinct than outbreaks with less superspreading (larger k) since most cases are caused by a highly infectious subset of individuals so the outbreak can collapse if these individuals, by chance, do not transmit much disease. When $R_0 < 1$ the probability of extinction is 1 regardless of the value of k because the number of new infections caused by existing cases is fewer than replacement by definition of $R_0$. Values of dispersion (k) used in calculations are estimates from two studies of SARS-CoV-2: solid lines are median and 95 % CrI values of posterior estimate of k from @endo_estimating_2020; dashed lines are are median and 90 % HDI values of posterior estimate of k from @riou_pattern_2020. **b.** The probability of extinction depends on the current number of infected individuals. If more individuals are currently infected, the probability of extinction is low even if $R_0$ is only slightly greater than 1. These calculations all used k = 0.1 [median posterior estimate @endo_estimating_2020].
 
-```{r zn_plot}
+```{r zn_plot, eval = FALSE}
 # final size
 finalsize_df %>%
   ggplot() +
@@ -344,11 +344,13 @@ finalsize_df %>%
 
 ```
 
-**Figure 2: Comparison of total cases by 10th generation.** Each point is an independent simulation. 50 simulations were run for each value of $R_0$ and k = 0.16 for all simulations. I don't think this figure is necessary.
+<!-- **Figure 2: Comparison of total cases by 10th generation.** Each point is an independent simulation. 50 simulations were run for each value of $R_0$ and k = 0.16 for all simulations. I don't think this figure is necessary. -->
 
 <!-- should use the two median estimates of k for the size at n-th generation plot -->
 
-### Construct hypothesis test
+# Sequential Testing
+
+### Defining a sequential test statistic
 Making a slight modification to @phatarfod_sequential_1965 to allow for composite hypothesis testing of dependent observations let 
 
 \begin{align*}
@@ -369,6 +371,7 @@ then the sequential probability ratio test (SPRT) for the composite hypothesis t
 The thresholds are set following Wald's method such that $A \sim \frac{1-\beta}{\alpha}$ and $B \sim \frac{\beta}{1-\alpha}$ where $\alpha$ and $\beta$ is the probabilities of type I and II error, respectively.
 
 In our case, the parameter ($\theta$) of interest is $R(t)$. When $S_r > \log(A)$ the decision maker concludes that it is unsafe to reopen and when $S_r \leq \log (B)$. This should have an advantage over the criteria that have been proposed on purely heuristic grounds since the decision maker is able to set choose the type I and II error rates whereas the error rates of the proposed criteria are uncontrolled and unknown. Another likely justification is that the SPRT may be the optimal test for this problem class (it is for the case where observations are iid, not sure about the markov dependence case).
+
 
 ```{r likelihood, results = 'hide'}
 # if it is true that for X_i ~ NB(mu, k) iid that sum(X_i) ~ NB(sum(mu), sum(k)) then the P( x_{t+1} | x_t, theta ) is 
@@ -541,12 +544,30 @@ break_low_sprt %>%
        x = "Generation number (t)") +
   my_theme()
 ```
-**Figure 3: Sequentially testing ** 
+**Figure 2: Sequentially testing ** 
 $\boldsymbol{H_0: R_t > 1}$ 
 **versus** 
 $\boldsymbol{H_1: R_t \leq 1}$**.**
 a. $H_0$ is rapidly accepted by the SPRT; however, it is slow to register a change in $R_t$ at $t = 11$ and falsely accepts $H_0$ when $H_1: R_t < 1$ is true because of the previous evidence that accumulated against $H-1$. b. When the SPRT is restarted after every decision is made about $H_0$ versus $H_1$ the test is able to quickely detect changes. However, it is unclear what repeatedly restarting tests does to the type I and II error rates ($\alpha, \beta$) set by the decision maker.
 
+# Sequential testing case studies
+The general format of these case studies is to investigate the performance of the reset SPRT for detecting changes in $R_t$ for the negative binomial model. In all cases I study how the RSPRT performs when $R_t$ starts out greater than $1$ and then drops below $1$. For each scenario I investigated the effect of the initial size of the infected population. 
+
+<!-- Generally, I find that small starting populations result in worse performance, presumably because the signals generated by shifts in $R_t$ are obscured by demographic stochasticity which is more influential for small populations. -->
+
+### Case 1: Breakpoint drop in $R_t$
+
+Here, I assume that mean cases generated by an individual follows
+
+\begin{align*}
+R_t = 
+    \begin{cases}
+      2  & \text{when} & t = 1, ..., 10\\
+      0.9 & \text{when} & t = 11, ..., 20
+    \end{cases}
+\end{align*}
+
+and test the hypothesis $H_0: R_t > 1 \text{ against } H_1: R_t \leq 1$.
 
 ```{r decision_lineplot, warning = FALSE, out.width = "50%", fig.show = 'hold'}
 break_low_sprt %>%
