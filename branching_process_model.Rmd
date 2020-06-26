@@ -658,13 +658,19 @@ break_high_sprt %>%
 #   my_theme()
 
 ```
-**Figure 3.**
+**Figure 3.** Panels a and b show decisions returned by RSPRT for each simulation when the initial outbreak size is 10 (a) vs. 100 (b). Panels c and d show proportion of simulations where a decision was returned by the RSPRT for initial outbreak sizes of 10 (c) or 100 (d). The vertical black dashed line at generation 11 denotes the point that $H_1$ becomes true. Results shown are for `r n` independent simulations.
+
+The RSPRT is less able to reject the null hypothesis $(R_t > 1)$ when infected generation sizes are smaller. This may be caused by demographic stochasticity which is most influential in small populations and can create fluctuations in infected generation size (see simulations in bottom of 3a). I suspect that in smaller outbreak power is also reduced because there is less of a difference in the probability of decreased infected generation sizes under either hypothesis when the infected generation sizes are small (due to overdispersion of negative binomial).
+
+The increase in statistical power based on infected generation size is evident when comparing figures 3c and 3d. Under more severe outbreaks (3d) RSPRT rejects the null hypothesis for nearly every time step after $H_1$ becomes true. Under the less severe outbreaks (3c) around half of the simulations rejects the null hypothesis at each time step after $H_1$ becomes true.
+
+However, it is likely that a more reasonable assessment of the RSPRT is to calculate the proportion of simulations for which $H_0$ is appropriately rejected at least once and the distribution of lag times.
 
 ### Case 2: Linearly decreasing $R_t$
 
 How do the sequential tests perform when $R_t$ decreases linearly $R_t = 2.1 - 0.1t$ where $t = 1, ... , 20$. 
 
-We test the hypothesis that $H_0: R_t > 1-c \text{ against } H_1: R_t \leq 1-c$. That is, when is transmission low enough that repoening will not result in $R > 1$. In this case $c = 0.3$ so the threshold is $0.7$. This means that $H_1$ is true when $t = 13, ... , 20$.
+We test the hypothesis that $H_0: R_t > 1-c \text{ against } H_1: R_t \leq 1-c$. That is, when is transmission low enough that repoening will not result in $R > 1$. In this case $c = 0.3$ so the threshold is $0.7$. This means that $H_1$ is true when $t = 14, ... , 20$.
 
 ```{r sim_linear_rt, cache = TRUE}
 r_linear <- seq(2, 0.1, by = -0.1)
@@ -770,9 +776,20 @@ lin_high_sprt %>%
   my_theme()  
 ```
 
-**Figure 4: Performance of reset SPRT when** $\boldsymbol{R_t}$ **decreases linearly**
+**Figure 4: Performance of reset SPRT when** $\boldsymbol{R_t}$ **decreases linearly** Panels a and b show decisions returned by RSPRT for each simulation when the initial outbreak size is 10 (a) vs. 100 (b). Panels c and d show proportion of simulations where a decision was returned by the RSPRT for initial outbreak sizes of 10 (c) or 100 (d). The vertical line at generation 11 denotes when $R_t = 1$ and the vertical dashed line at generation 14 denotes the point that $H_1$ becomes true. Results shown are for `r n` independent simulations.
+
+The effect of outbreak severity on the ability of RSPRT to reject $H_0$ in an appropriate and timely manner is similar to the case 1 for the breakpoint change in $R_t$. However, there is now a marked delay of one generation in the majority of simulations before RSPRT reject $H_0$ (figure 4 c and d). There is also a mode in proportion of simluations rejecting $H_0$ at generation 18 in both outbreak severity scenarios. The factors influencing this will be important to quantify. It would be interesting to examine how the rate and functional form of the trend in $R_t$ influences this time to detection.
 
 # Next steps
+
+* Define set of performance metrics
+    + Calculate distributions of lag times for rejecting $H_0$
+    + what else? ROC?
+    + performance plots could include:
+        + drift in $R_t$
+        + decisions for each simulated trajectory
+        + proportion of simluations where tests correctly rejected null during simulation length
+        + distribution of decision times (could be problematic to calculate if RSPRT doesn't always reject in finite time)
 
 * Individual based model
     + necessary to evaluate rules in reopening plans
