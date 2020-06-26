@@ -567,27 +567,31 @@ R_t =
     \end{cases}
 \end{align*}
 
-and test the hypothesis $H_0: R_t > 1 \text{ against } H_1: R_t \leq 1$.
+and test the hypothesis $H_0: R_t > 1 \text{ against } H_1: R_t \leq 1$. This means that $H_0$ is true when $t = 1, ..., 10$ and $H_1$ is true when $t = 11, ... ,20$.
 
 ```{r decision_lineplot, warning = FALSE, out.width = "50%", fig.show = 'hold'}
 break_low_sprt %>%
   ggplot() +
   geom_line(aes(x = time, y = infected, group = simulation)) +
   geom_point(aes(x = time, y = infected, group = simulation, col = decision_reset)) +
+  geom_vline(aes(xintercept = 11), linetype = "dashed", size = 1.5) +
   scale_y_log10(breaks = c(1, 10, 100, 1000, 10000)) +
-  labs(title = "Outbreak sizes and decisions",
-       x = "outbreak generation (t)",
-       col = "decision") + 
+  labs(title = "a",#title = "Outbreak sizes and decisions",
+       y = expression(New~infections~(x[t])),
+       x = "Outbreak generation (t)",
+       col = "Decision") + 
   my_theme()
 
 break_high_sprt %>%
   ggplot() +
   geom_line(aes(x = time, y = infected, group = simulation)) +
   geom_point(aes(x = time, y = infected, group = simulation, col = decision_reset)) +
+  geom_vline(aes(xintercept = 11), linetype = "dashed", size = 1.5) +
   scale_y_log10(breaks = c(1, 10, 100, 1000, 10000)) +
-  labs(title = "Outbreak sizes and decisions",
-       x = "outbreak generation (t)",
-       col = "decision") + 
+  labs(title = "b",#title = "Outbreak sizes and decisions",
+       y = expression(New~infections~(x[t])),
+       x = "Outbreak generation (t)",
+       col = "Decision") + 
   my_theme()
   
 # threshold <- 5000
@@ -613,11 +617,12 @@ break_low_sprt %>%
   complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
   ggplot() +
   geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill") +
-  labs(title = "Conclusions of of reset SPRT over time",
-       subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
-       y = "proportion of simulations",
-       x = "outbreak generation (t)",
-       fill = "decision") +
+  geom_vline(aes(xintercept = 11), linetype = "dashed", size = 1.5) +
+  labs(title = "c",#title = "Conclusions of of reset SPRT over time",
+       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+       y = "Proportion of simulations",
+       x = "Outbreak generation (t)",
+       fill = "Decision") +
   my_theme()
 
 break_high_sprt %>%
@@ -626,13 +631,13 @@ break_high_sprt %>%
   complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
   ggplot() +
   geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill") +
-  labs(title = "Conclusions of of reset SPRT over time",
-       subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
-       y = "proportion of simulations",
-       x = "outbreak generation (t)",
-       fill = "decision") +
+  geom_vline(aes(xintercept = 11), linetype = "dashed", size = 1.5) +
+  labs(title = "d",#title = "Conclusions of of reset SPRT over time",
+       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+       y = "Proportion of simulations",
+       x = "Outbreak generation (t)",
+       fill = "Decision") +
   my_theme()
-
 
 # break_low_sprt %>%
 #   group_by(simulation) %>%
@@ -653,10 +658,13 @@ break_high_sprt %>%
 #   my_theme()
 
 ```
+**Figure 3.**
 
 # Linearly decreasing $R_t$
 
-How do the sequential tests perform when $R_t$ decreases linearly and we want to test the hypothesis that $H_0: \theta_t > \theta_0 \text{ against } H_1: \theta_t \leq \theta_0$ where the threshold $0 < \theta_0 = 1 - c(t) < 1$. That is, when is transmission low enough that repoening will not result in $R > 1$.
+How do the sequential tests perform when $R_t$ decreases linearly $R_t = 2.1 - 0.1t$ where $t = 1, ... , 20$. 
+
+We test the hypothesis that $H_0: R_t > 1-c \text{ against } H_1: R_t \leq 1-c$. That is, when is transmission low enough that repoening will not result in $R > 1$. In this case $c = 0.3$ so the threshold is $0.7$. This means that $H_1$ is true when $t = 13, ... , 20$.
 
 ```{r sim_linear_rt, cache = TRUE}
 r_linear <- seq(2, 0.1, by = -0.1)
@@ -667,22 +675,6 @@ acceptance <- c(thresh_R + 10^-6, 2.5)
 set.seed(123)
 df_lin_high <- episim(t = t, i_0 = 10^2, r0 = r_linear, disp = disp, cont = cont, nsim = 100)
 df_lin_low <- episim(t = t, i_0 = 10^1, r0 = r_linear, disp = disp, cont = cont, nsim = 100)
-```
-
-```{r plot_lin_rt, warning = FALSE, out.width = "50%", fig.show = 'hold'}
-df_lin_low %>%
-  ggplot() +
-  geom_line(aes(x = time, y = infected, group = simulation)) +
-  geom_vline(aes(xintercept = which(r_linear == 0.7)), col = "red", linetype = "dashed") +
-  geom_vline(aes(xintercept = which(r_linear == 1))) +
-  scale_y_log10()
-
-df_lin_high %>%
-  ggplot() +
-  geom_line(aes(x = time, y = infected, group = simulation)) +
-  geom_vline(aes(xintercept = which(r_linear == 0.7)), col = "red", linetype = "dashed") +
-  geom_vline(aes(xintercept = which(r_linear == 1))) +
-  scale_y_log10()
 ```
 
 ```{r calc_sprt_lineardecrease}
@@ -717,6 +709,34 @@ lin_low_sprt <- calc_reset_sr(lin_low_sprt)
 
 ```
 
+```{r plot_lin_rt, warning = FALSE, out.width = "50%", fig.show = 'hold'}
+lin_low_sprt %>%
+  ggplot() +
+  geom_line(aes(x = time, y = infected, group = simulation)) +
+  geom_point(aes(x = time, y = infected, group = simulation, col = decision_reset)) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
+  scale_y_log10() +
+  viridis::scale_color_viridis(discrete = TRUE) +
+  labs(title = "a",#title = "Outbreak sizes and decisions",
+       y = expression(New~infections~(x[t])),
+       x = "Outbreak generation (t)",
+       col = "Decision") + 
+  my_theme()
+
+lin_high_sprt %>%
+  ggplot() +
+  geom_line(aes(x = time, y = infected, group = simulation)) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
+  scale_y_log10() +
+  labs(title = "b",#title = "Outbreak sizes and decisions",
+       y = expression(New~infections~(x[t])),
+       x = "Outbreak generation (t)",
+       col = "Decision") + 
+  my_theme()
+```
+
 ```{r plot_performance_lin_rt, out.width='50%', fig.show = 'hold'}
 lin_low_sprt %>%
   group_by(time) %>%
@@ -724,8 +744,15 @@ lin_low_sprt %>%
   complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
   ggplot() +
   geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill") +
-  geom_vline(aes(xintercept = which(r_linear == 0.7)), col = "red", linetype = "dashed", size = 1.5) +
-  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) 
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
+  viridis::scale_fill_viridis(discrete = TRUE) +
+  labs(title = "c",#title = "Conclusions of of reset SPRT over time",
+       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+       y = "Proportion of simulations",
+       x = "Outbreak generation (t)",
+       fill = "Decision") +
+  my_theme()
 
 lin_high_sprt %>%
   group_by(time) %>%
@@ -733,15 +760,21 @@ lin_high_sprt %>%
   complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
   ggplot() +
   geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill") +
-  geom_vline(aes(xintercept = which(r_linear == 0.7)), col = "red", linetype = "dashed", size = 1.5) +
-  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) 
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
+  labs(title = "d",#title = "Conclusions of of reset SPRT over time",
+       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+       y = "Proportion of simulations",
+       x = "Outbreak generation (t)",
+       fill = "Decision") +
+  my_theme()  
 ```
 
-**Figure 7: Performance of reset SPRT when** $\boldsymbol{R_t}$ **decreases linearly**
+**Figure 4: Performance of reset SPRT when** $\boldsymbol{R_t}$ **decreases linearly**
 
-# Assessment of 14-day rule
+<!-- # Assessment of 14-day rule -->
 
-Before we can assess the performance of the 14-day rule we must translate the total cases per generation into cases per day. To do this we draw symptom onset dates from a log normal distribution `rlnorm(n = infected, meanlog = 1.621, sdlog = 0.418)` using parameters estimated by @lauer_incubation_2020. This procedure assumes that onset of symptoms is independent across cases which seems reasonable. However, it also assumes that all individuals in a generation were exposed at the exact same time. This assumption produces strong seasonality in cases per day because the probability of symptom onset is (see . To avoid this modeling artifact, I will need to also simulate the times of exposure in addition to onset of infectivity. An example of this is in @hellewell_feasibility_2020 ([code and r package](https://github.com/cmmid/ringbp)).
+<!-- Before we can assess the performance of the 14-day rule we must translate the total cases per generation into cases per day. To do this we draw symptom onset dates from a log normal distribution `rlnorm(n = infected, meanlog = 1.621, sdlog = 0.418)` using parameters estimated by @lauer_incubation_2020. This procedure assumes that onset of symptoms is independent across cases which seems reasonable. However, it also assumes that all individuals in a generation were exposed at the exact same time. This assumption produces strong seasonality in cases per day because the probability of symptom onset is (see . To avoid this modeling artifact, I will need to also simulate the times of exposure in addition to onset of infectivity. An example of this is in @hellewell_feasibility_2020 ([code and r package](https://github.com/cmmid/ringbp)). -->
 
 ```{r inf_onset_times, eval = FALSE}
 # point estimates from: Lauer et al 2020. Ann. Int. Med https://www.acpjournals.org/doi/10.7326/M20-0504
@@ -759,7 +792,7 @@ icub %>%
 ```
 
 
-```{r assign_inf_onset, , out.width = "50%", fig.show = 'hold'}
+```{r assign_inf_onset, , out.width = "50%", fig.show = 'hold', eval = FALSE}
 # simulate onset time of infectiousness
 outbreak_inc <- df_break_low %>% 
   filter(simulation %in% 1:20) %>% # only do first 20 since the per_day and df calculations can take a while (setup dependency/cache later)
@@ -782,7 +815,7 @@ df <-
   per_day %>% complete(nesting(inf_day = 1:14), fill = list(n = 0)) %>%
   group_by(simulation) %>% mutate(day = row_number())
 ```
-```{r plot_symptom_onset_per_day, out.width = "50%", fig.show = 'hold'}
+```{r plot_symptom_onset_per_day, out.width = "50%", fig.show = 'hold', eval = FALSE}
 filter(df, simulation == 10) %>%
 ggplot(aes(x = day, y = n, col = inf_day)) +
   geom_point() + viridis::scale_color_viridis() +
@@ -802,7 +835,7 @@ ggplot(df, aes(x = day, y = n, group = simulation, col = as.factor(simulation)))
 
 ```
 
-**Figure 4: Model assumptions cause spurious seasonality in new cases.** Perhaps modeling the time of infection will fix this problem.
+<!-- **Figure 4: Model assumptions cause spurious seasonality in new cases.** Perhaps modeling the time of infection will fix this problem. -->
 
 # References {-}
 
@@ -812,8 +845,8 @@ ggplot(df, aes(x = day, y = n, group = simulation, col = as.factor(simulation)))
 
 \newpage 
 
-# Key Personnel {-}
+<!-- # Key Personnel {-} -->
 
-\newpage
+<!-- \newpage -->
 
-# Budget
+<!-- # Budget -->
