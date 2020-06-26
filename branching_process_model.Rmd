@@ -39,14 +39,14 @@ my_theme <- function(...) theme_minimal(base_size = 15)
 A reasonable model for the initial phase of an outbreak (i.e. ignoring the depletion of susceptibles) is: 
 
 \begin{align*}
-Z_i & \sim NB(R(t), k)
+Z_i & \sim NB(R_t, k)
 \end{align*}
 
-where $Z_i$ is the number of secondary cases produced by the $i$-th infected individual which follows a negative binomial distribution with mean $R(t)$ and dispersion $k$. Epidemiologically, $R(t)$ is the time-specific mean number of infections caused by an infectious individual and $k$ represents variability in infectiousness among individuals [@lloyd-smith_superspreading_2005]. Under the assumption that all $X_i$ are independent and identically distributed (iid) the total number of secondary infections is given by
+where $Z_i$ is the number of secondary cases produced by the $i$-th infected individual which follows a negative binomial distribution with mean $R_t$ and dispersion $k$. Epidemiologically, $R_t$ is the time-specific mean number of infections caused by an infectious individual and $k$ represents variability in infectiousness among individuals [@lloyd-smith_superspreading_2005]. Under the assumption that all $X_i$ are independent and identically distributed (iid) the total number of secondary infections is given by
 
 \begin{align*}
 X_{t+1} & \sim \Sigma^{Z_t}_{i=1}X_i \\
-            & \sim NB(\Sigma^{X_t}_{i=1} R(t), \Sigma^{X_t}_{i=1} k)
+            & \sim NB(\Sigma^{X_t}_{i=1} R_t, \Sigma^{X_t}_{i=1} k)
 \end{align*}
 
 where the step size is chosen here to be the incubation period, 14 days. 
@@ -363,14 +363,15 @@ then the sequential probability ratio test (SPRT) for the composite hypothesis t
 \begin{align*}
 \phi(x_n) = 
     \begin{cases}
-      \text{reject } H_0  & \Sigma^{n}_{r = 0} S_r > \log(A)\\
-      \text{accept } H_0 & \Sigma^{n}_{r = 0} S_r \leq \log(B)
+      \text{reject } H_0  & \Sigma^{n}_{r = 0} S_r > \log(A) \\
+      \text{accept } H_0 & \Sigma^{n}_{r = 0} S_r \leq \log(B) \\
+      \text{continue sampling} & \log(B)  <  \Sigma^{n}_{r = 0} S_r  \leq  \log(A)  
     \end{cases}
 \end{align*}
 
 The thresholds are set following Wald's method such that $A \sim \frac{1-\beta}{\alpha}$ and $B \sim \frac{\beta}{1-\alpha}$ where $\alpha$ and $\beta$ is the probabilities of type I and II error, respectively.
 
-In our case, the parameter ($\theta$) of interest is $R(t)$. When $S_r > \log(A)$ the decision maker concludes that it is unsafe to reopen and when $S_r \leq \log (B)$. This should have an advantage over the criteria that have been proposed on purely heuristic grounds since the decision maker is able to set choose the type I and II error rates whereas the error rates of the proposed criteria are uncontrolled and unknown. Another likely justification is that the SPRT may be the optimal test for this problem class (it is for the case where observations are iid, not sure about the markov dependence case).
+In our case, the parameter ($\theta$) of interest is $R_t$. When $S_r > \log(A)$ the decision maker concludes that it is unsafe to reopen at time $r$ and when $S_r \leq \log (B)$ the decision maker concludes it is safe to reopen at time $r$. This should have an advantage over the criteria that have been proposed on purely heuristic grounds since the decision maker is able to set choose the type I and II error rates whereas the error rates of the proposed criteria are uncontrolled and unknown. Another likely justification is that the SPRT may be the optimal test for this problem class (it is for the case where observations are iid, not sure about the markov dependence case).
 
 
 ```{r likelihood, results = 'hide'}
@@ -548,7 +549,7 @@ break_low_sprt %>%
 $\boldsymbol{H_0: R_t > 1}$ 
 **versus** 
 $\boldsymbol{H_1: R_t \leq 1}$**.**
-a. $H_0$ is rapidly accepted by the SPRT; however, it is slow to register a change in $R_t$ at $t = 11$ and falsely accepts $H_0$ when $H_1: R_t < 1$ is true because of the previous evidence that accumulated against $H-1$. b. When the SPRT is restarted after every decision is made about $H_0$ versus $H_1$ the test is able to quickely detect changes. However, it is unclear what repeatedly restarting tests does to the type I and II error rates ($\alpha, \beta$) set by the decision maker.
+a. $H_0$ is rapidly accepted by the SPRT; however, it is slow to register a change in $R_t$ at $t = 11$ and falsely accepts $H_0$ when $H_1: R_t < 1$ is true because of the previous evidence that accumulated against $H_1$. b. When the SPRT is restarted after every decision is made about $H_0$ versus $H_1$ the test is able to quickely detect changes. However, it is unclear what repeatedly restarting tests does to the type I and II error rates ($\alpha, \beta$) set by the decision maker.
 
 # Sequential testing case studies
 The general format of these case studies is to investigate the performance of the reset SPRT for detecting changes in $R_t$ for the negative binomial model. In all cases I study how the RSPRT performs when $R_t$ starts out greater than $1$ and then drops below $1$. For each scenario I investigated the effect of the initial size of the infected population. 
@@ -562,12 +563,12 @@ Here, I assume that mean cases generated by an individual follows
 \begin{align*}
 R_t = 
     \begin{cases}
-      2  & \text{when} & t = 1, ..., 10\\
-      0.9 & \text{when} & t = 11, ..., 20
+      2  & \text{when} & t = 1, \ldots, 10\\
+      0.9 & \text{when} & t = 11, \ldots, 20
     \end{cases}
 \end{align*}
 
-and test the hypothesis $H_0: R_t > 1 \text{ against } H_1: R_t \leq 1$. This means that $H_0$ is true when $t = 1, ..., 10$ and $H_1$ is true when $t = 11, ... ,20$.
+and test the hypothesis $H_0: R_t > 1 \text{ against } H_1: R_t \leq 1$. This means that $H_0$ is true when $t = 1, \ldots, 10$ and $H_1$ is true when $t = 11, \ldots ,20$.
 
 ```{r decision_lineplot, warning = FALSE, out.width = "50%", fig.show = 'hold'}
 break_low_sprt %>%
@@ -668,9 +669,9 @@ However, it is likely that a more reasonable assessment of the RSPRT is to calcu
 
 ### Case 2: Linearly decreasing $R_t$
 
-How do the sequential tests perform when $R_t$ decreases linearly $R_t = 2.1 - 0.1t$ where $t = 1, ... , 20$. 
+How do the sequential tests perform when $R_t$ decreases linearly $R_t = 2.1 - 0.1t$ where $t = 1, \ldots , 20$. 
 
-We test the hypothesis that $H_0: R_t > 1-c \text{ against } H_1: R_t \leq 1-c$. That is, when is transmission low enough that repoening will not result in $R > 1$. In this case $c = 0.3$ so the threshold is $0.7$. This means that $H_1$ is true when $t = 14, ... , 20$.
+We test the hypothesis that $H_0: R_t > 1-c \text{ against } H_1: R_t \leq 1-c$. That is, when is transmission low enough that repoening will not result in $R > 1$. In this case $c = 0.3$ so the threshold is $0.7$. This means that $H_1$ is true when $t = 14, \ldots , 20$.
 
 ```{r sim_linear_rt, cache = TRUE}
 r_linear <- seq(2, 0.1, by = -0.1)
