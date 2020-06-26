@@ -10,8 +10,153 @@ bibliography: bib_decision_rules.bib
 knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 
+# branching process model
+episim <- function (t, i_0, r0, disp, cont, nsim) {
+  
+  # init list to store each simulation
+  out_list <- vector("list", nsim)
+  
+  for (k in seq_along(out_list)) {
+    # initialize data frame
+    out <- tibble("time" = t
+                  , "R0_true" = r0
+                  , "disp_true" = disp
+                  , "control" = cont
+                  , "infected" = NA
+                  , "simulation" = k)
+    out[1, "infected"] <- i_0
+    
+    # branching process simulations
+    for (i in 2:length(t)) {
+      out[i, "infected"] <- sum(rnbinom(n = unlist(out[i-1, "infected"]), # number infected in previous time step
+                                        mu = (1 - unlist(out[i-1, "control"]))  * unlist(out[i-1, "R0_true"]), # (controlled) R
+                                        size = unlist(out[i-1, "disp_true"]))) # dispersion
+      if(out[i, "infected"] == 0) break
+    }
+    # save in out_list
+    out_list[[k]] <- out %>% filter(!is.na(infected))
+  }
+  return(bind_rows(out_list))
+}
+
+# if it is true that for X_i ~ NB(mu, k) iid that sum(X_i) ~ NB(sum(mu), sum(k)) then the P( x_{t+1} | x_t, theta ) is 
+# dnbinom(x = x1, mu = x0 * r0, size = x0 * disp) because the X_i are iid
+
+objfn <- function(r, x1, x0, dispersion) {
+  # likelihood( x1 | x0, r, dispersion )
+  dnbinom(x = x1, mu = x0*r, size = x0*dispersion)
+}
+
+
+#  find restricted MLE under h_0 or h_1
+likelihood <- function (x_prev, x_now, disp, interval = c(), guess = 1.5) {
+  opt <- optim(par = guess, fn = objfn, control = list(fnscale = -1), 
+      method = "Brent", lower = interval[1], upper = interval[2],
+      x0 = x_prev, x1 = x_now, dispersion = disp)
+  return(opt$value)
+}
+
+# sequential test functions
+calc_sr <- function(data, accept_reg = c(1 + 10^-6, 2.5), reject_reg = c(0, 1)) {
+  
+  # initialize empty columns for likelihood calculations
+  data$lik0 <- NA
+  data$lik1 <- NA
+  
+  # parameter space
+  theta0 <- accept_reg
+  theta1 <- reject_reg
+  
+  # use midpoint of interval as init guess for optim (Brent's method)
+  guess0 <- accept_reg[1] + (accept_reg[2] - accept_reg[1]) / 2 
+  guess1 <- reject_reg[1] + (reject_reg[2] - reject_reg[1]) / 2 
+  
+  sim_number <- 1
+  for (i in 2:nrow(data)) {
+    
+    if (data[i, "simulation"] == sim_number + 1) {
+      # skip calculation of likelihood for the first observation in each simluation
+      sim_number <- sim_number + 1
+      next
+    }
+    
+    # observed states and known pars
+    x0 <- unlist(data[i-1, "infected"])
+    x1 <- unlist(data[i, "infected"])
+    disp <- unlist(data[i-1, "disp_true"])
+    
+    # likelihood calculation
+    data[i,"lik0"] <- likelihood(x_prev = x0, x_now = x1, disp = disp,  # p(x_now | x_prev, disp, theta \in Theta_0)
+                                   interval = theta0, guess = guess0)
+    data[i,"lik1"] <- likelihood(x_prev = x0, x_now = x1, disp = disp,  # p(x_now | x_prev, disp, theta \in Theta_1)
+                                   interval = theta1, guess = guess1)
+  }
+  
+  return(data)
+}
+
+calc_reset_sr <- function(data) {
+  
+  # init vectors to hold reset sprt (cumulative sr) and decision
+  sprt_reset <- vector("numeric", length = nrow(data))
+  decision_reset <- vector("character", length = nrow(data))
+  
+  # init data
+  sr <- data$sr
+  a <- unique(data$a)
+  b <- unique(data$b)
+  
+  # both models are equally likely for first observation
+  sprt_reset[1] <- 0
+  decision_reset[1] <- "?"
+  
+  sim_number <- 1
+  for (i in 2:nrow(data)) {
+    
+    if (data[i, "simulation"] == sim_number + 1) {
+      # skip calculation of resetting sprt for the first observation in each simluation
+      sim_number <- sim_number + 1
+      sprt_reset[i] <- 0
+      decision_reset[i] <- "?"
+      next
+    }
+    
+    # if no decision has been made, update SPRT
+    # otherwise, reset the SPRT
+    ifelse(decision_reset[i] == "?",
+           sprt_reset[i] <- sprt_reset[i-1] + sr[i],
+           sprt_reset[i] <- sr[i])
+    
+    # if SPRT has crossed bounds, make decision
+    # otherwise continue sampling
+    ifelse(sprt_reset[i] < b
+           ,{decision_reset[i] <- "H0"}#; sprt_reset[i+1] <- sr[i+1]; next}
+           ,ifelse(sprt_reset[i] > a
+                   ,{decision_reset[i] <- "H1"}#; sprt_reset[i+1] <- sr[i+1]; next}
+                   ,{decision_reset[i] <- "?"})
+    )
+  }
+  
+  # attach reset sprt calculations and decisions to df
+  data$sprt_reset <- sprt_reset
+  data$decision_reset <- decision_reset
+  
+  return(data)
+}
+
 my_theme <- function(...) theme_minimal(base_size = 15) 
 ```
+
+```{r set_params}
+# set params and init conds
+t <- 1:20
+r0 <- c(rep(2, 10), rep(0.9, 10)) # lockdown starts at t = 11
+disp <- 0.10 # median of posterior estimate of k for SARS-CoV-2 (Endo et al. 2020)
+i_0 <- 100
+cont <- 0
+n <- 100
+```
+
 
 <!-- # Motivation -->
 
@@ -66,7 +211,7 @@ ggplot(test) +
   labs(title = "compare distributions")
 ```
 
-```{r branching_model}
+```{r branching_model, eval = FALSE}
 episim <- function (t, i_0, r0, disp, cont, nsim) {
   
   # init list to store each simulation
@@ -127,6 +272,10 @@ ggplot() +
   labs(title = "Outbreak size distribution" 
          ,x = "log10(total infected)")
 
+```
+
+```{r}
+out <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont, nsim = 1)
 ```
 
 
@@ -375,22 +524,7 @@ In our case, the parameter ($\theta$) of interest is $R_t$. When $S_r > \log(A)$
 
 
 ```{r likelihood, results = 'hide'}
-# if it is true that for X_i ~ NB(mu, k) iid that sum(X_i) ~ NB(sum(mu), sum(k)) then the P( x_{t+1} | x_t, theta ) is 
-# dnbinom(x = x1, mu = x0 * r0, size = x0 * disp) because the X_i are iid
 
-objfn <- function(r, x1, x0, dispersion) {
-  # likelihood( x1 | x0, r, dispersion )
-  dnbinom(x = x1, mu = x0*r, size = x0*dispersion)
-}
-
-
-#  find restricted MLE under h_0 or h_1
-likelihood <- function (x_prev, x_now, disp, interval = c(), guess = 1.5) {
-  opt <- optim(par = guess, fn = objfn, control = list(fnscale = -1), 
-      method = "Brent", lower = interval[1], upper = interval[2],
-      x0 = x_prev, x1 = x_now, dispersion = disp)
-  return(opt$value)
-}
 
 #likelihood(x_prev = 10, x_now = 20, disp = 0.16, interval = c(1, 2.5))
 
@@ -400,44 +534,6 @@ likelihood <- function (x_prev, x_now, disp, interval = c(), guess = 1.5) {
 set.seed(123)
 df_break_high <- episim(t = t, i_0 = 100, r0 = r0, disp = disp, cont = cont, nsim = 100)
 df_break_low <- episim(t = t, i_0 = 10, r0 = r0, disp = disp, cont = cont, nsim = 100)
-
-calc_sr <- function(data, accept_reg = c(1 + 10^-6, 2.5), reject_reg = c(0, 1)) {
-  
-  # initialize empty columns for likelihood calculations
-  data$lik0 <- NA
-  data$lik1 <- NA
-  
-  # parameter space
-  theta0 <- accept_reg
-  theta1 <- reject_reg
-  
-  # use midpoint of interval as init guess for optim (Brent's method)
-  guess0 <- accept_reg[1] + (accept_reg[2] - accept_reg[1]) / 2 
-  guess1 <- reject_reg[1] + (reject_reg[2] - reject_reg[1]) / 2 
-  
-  sim_number <- 1
-  for (i in 2:nrow(data)) {
-    
-    if (data[i, "simulation"] == sim_number + 1) {
-      # skip calculation of likelihood for the first observation in each simluation
-      sim_number <- sim_number + 1
-      next
-    }
-    
-    # observed states and known pars
-    x0 <- unlist(data[i-1, "infected"])
-    x1 <- unlist(data[i, "infected"])
-    disp <- unlist(data[i-1, "disp_true"])
-    
-    # likelihood calculation
-    data[i,"lik0"] <- likelihood(x_prev = x0, x_now = x1, disp = disp,  # p(x_now | x_prev, disp, theta \in Theta_0)
-                                   interval = theta0, guess = guess0)
-    data[i,"lik1"] <- likelihood(x_prev = x0, x_now = x1, disp = disp,  # p(x_now | x_prev, disp, theta \in Theta_1)
-                                   interval = theta1, guess = guess1)
-  }
-  
-  return(data)
-}
 
 df_break_high <- calc_sr(df_break_high)
 df_break_low <- calc_sr(df_break_low) 
@@ -463,56 +559,6 @@ break_low_sprt <- df_break_low %>%
          decision = case_when(sprt <= a & sprt >= b ~"?",
                               sprt > a ~ "H1",
                               sprt < b ~ "H0"))
-
-
-calc_reset_sr <- function(data) {
-  
-  # init vectors to hold reset sprt (cumulative sr) and decision
-  sprt_reset <- vector("numeric", length = nrow(data))
-  decision_reset <- vector("character", length = nrow(data))
-  
-  # init data
-  sr <- data$sr
-  a <- unique(data$a)
-  b <- unique(data$b)
-  
-  # both models are equally likely for first observation
-  sprt_reset[1] <- 0
-  decision_reset[1] <- "?"
-  
-  sim_number <- 1
-  for (i in 2:nrow(data)) {
-    
-    if (data[i, "simulation"] == sim_number + 1) {
-      # skip calculation of resetting sprt for the first observation in each simluation
-      sim_number <- sim_number + 1
-      sprt_reset[i] <- 0
-      decision_reset[i] <- "?"
-      next
-    }
-    
-    # if no decision has been made, update SPRT
-    # otherwise, reset the SPRT
-    ifelse(decision_reset[i] == "?",
-           sprt_reset[i] <- sprt_reset[i-1] + sr[i],
-           sprt_reset[i] <- sr[i])
-    
-    # if SPRT has crossed bounds, make decision
-    # otherwise continue sampling
-    ifelse(sprt_reset[i] < b
-           ,{decision_reset[i] <- "H0"}#; sprt_reset[i+1] <- sr[i+1]; next}
-           ,ifelse(sprt_reset[i] > a
-                   ,{decision_reset[i] <- "H1"}#; sprt_reset[i+1] <- sr[i+1]; next}
-                   ,{decision_reset[i] <- "?"})
-    )
-  }
-  
-  # attach reset sprt calculations and decisions to df
-  data$sprt_reset <- sprt_reset
-  data$decision_reset <- decision_reset
-  
-  return(data)
-}
 
 break_high_sprt <- calc_reset_sr(break_high_sprt)
 break_low_sprt <- calc_reset_sr(break_low_sprt)
