@@ -660,7 +660,7 @@ break_high_sprt %>%
 ```
 **Figure 3.**
 
-# Linearly decreasing $R_t$
+### Case 2: Linearly decreasing $R_t$
 
 How do the sequential tests perform when $R_t$ decreases linearly $R_t = 2.1 - 0.1t$ where $t = 1, ... , 20$. 
 
@@ -771,6 +771,20 @@ lin_high_sprt %>%
 ```
 
 **Figure 4: Performance of reset SPRT when** $\boldsymbol{R_t}$ **decreases linearly**
+
+# Next steps
+
+* Individual based model
+    + necessary to evaluate rules in reopening plans
+    + can also use data to test performance of reset sprt on more complicated data
+  
+* Look into tranmission chain size as another data source for estimating R0 ([see Blumberg and Lloyd-Smith 2013](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002993))
+
+* alternative model for estimating R_t
+    + log transform time series and fit linear model. Use value of slope coefficient to make decision. Similar to approach in [White (2019)](https://doi.org/10.1093/biosci/biy144).
+
+* read paper on detecting changes in poisson processes with linear drift in mean ([Zhao, Shu, Tsui (2014)](https://www.tandfonline.com/doi/ref/10.1080/00949655.2014.945933?scroll=top))
+    + how can this be extended to negative binomial process?
 
 <!-- # Assessment of 14-day rule -->
 
