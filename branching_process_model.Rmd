@@ -8,9 +8,9 @@ output:
 bibliography: bib_decision_rules.bib
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-library(tidyverse)
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = FALSE)
+suppressMessages(library(tidyverse))
 
 # branching process model
 episim <- function (t, i_0, r0, disp, cont, nsim) {
@@ -919,7 +919,7 @@ ggplot(df, aes(x = day, y = n, group = simulation, col = as.factor(simulation)))
 
 # Daily time step model
 
-```{r, echo = TRUE}
+```{r, echo = TRUE, warning = FALSE}
 # see methods section of Merl et al. (2009) https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0005807
 
 t <- 1:50 # days
