@@ -2,12 +2,14 @@
 title: "Decision rules for reopening from COVID-19 lockdowns"
 author: "David Nguyen"
 date: "`r Sys.Date()`"
-output: html_document
+output: 
+  html_document:
+    code_folding: hide
 bibliography: bib_decision_rules.bib
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 
 # branching process model
@@ -411,7 +413,7 @@ q_list %>% bind_rows() %>%
 ```
 
 
-```{r simulate_final_size, cache = TRUE}
+```{r simulate_final_size, cache = TRUE, eval = FALSE}
 # total infected after n generations
 rvals <- seq(0.1, 5, by = 0.1)
 finalsize_list <- vector("list", length = length(rvals))
@@ -914,6 +916,59 @@ ggplot(df, aes(x = day, y = n, group = simulation, col = as.factor(simulation)))
 ```
 
 <!-- **Figure 4: Model assumptions cause spurious seasonality in new cases.** Perhaps modeling the time of infection will fix this problem. -->
+
+# Daily time step model
+
+```{r, echo = TRUE}
+# see methods section of Merl et al. (2009) https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0005807
+
+t <- 1:50 # days
+N <- 10^2  # pop size
+i0 <- 1 # init infected
+s0 <- N - i0 # init susc
+
+r0 <- 2
+gamma <- 1/5
+beta <- r0 * gamma
+k <- 0.1
+
+out <- matrix(NA, nrow = length(t), ncol = 4)
+out[,1] <- t
+out[1,2] <- s0
+out[1,3] <- i0
+out[1, 4] <- 0 # no recovered
+
+
+i <- 1
+while(i < tail(t,1) & out[i,3] > 0) {
+  # calculate probability of a susceptible (resp. infected) becomeing infected (resp. recovering)
+  prob_inf <- (1 - (k / (k + beta * out[i,3])) ^ k)
+  prob_rec <- (1 - exp(-gamma))
+  # draw number of infected and recovered
+  infected <- rbinom(1, size = out[i,2], prob = prob_inf )
+  recovered <- rbinom(1, size = out[i,3], prob = prob_rec)
+  # update data
+  out[i + 1, 2] <- out[i, 2] - infected
+  out[i + 1, 3] <- out[i, 3] + infected - recovered
+  out[i + 1, 4] <- out[i, 4] + recovered
+  
+  i <- i + 1
+}
+
+
+
+out <- as_tibble(out)
+names(out) <- c("time", "s", "i", "r")
+out <- 
+  out %>%  pivot_longer(cols = 2:4,
+                      names_to = "class",
+                      values_to = "number")
+
+ggplot(out, aes(x = time, y = number, col = class)) +
+  geom_line()
+
+```
+
 
 # References {-}
 
