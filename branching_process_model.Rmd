@@ -189,10 +189,10 @@ A reasonable model for the initial phase of an outbreak (i.e. ignoring the deple
 Z_i & \sim NB(R_t, k)
 \end{align*}
 
-where $Z_i$ is the number of secondary cases produced by the $i$-th infected individual which follows a negative binomial distribution with mean $R_t$ and dispersion $k$. Epidemiologically, $R_t$ is the time-specific mean number of infections caused by an infectious individual and $k$ represents variability in infectiousness among individuals [@lloyd-smith_superspreading_2005]. Under the assumption that all $X_i$ are independent and identically distributed (iid) the total number of secondary infections is given by
+where $Z_i$ is the number of secondary cases produced by the $i$-th infected individual which follows a negative binomial distribution with mean $R_t$ and dispersion $k$. Epidemiologically, $R_t$ is the time-specific mean number of infections caused by an infectious individual and $k$ represents variability in infectiousness among individuals [@lloyd-smith_superspreading_2005]. Under the assumption that all $Z_i$ are independent and identically distributed (iid) the total number of secondary infections is given by
 
 \begin{align*}
-X_{t+1} & \sim \Sigma^{Z_t}_{i=1}X_i \\
+X_{t+1} & \sim \Sigma^{X_t}_{i=1}Z_i \\
             & \sim NB(\Sigma^{X_t}_{i=1} R_t, \Sigma^{X_t}_{i=1} k)
 \end{align*}
 
