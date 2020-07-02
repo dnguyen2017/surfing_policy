@@ -146,6 +146,22 @@ calc_reset_sr <- function(data) {
   return(data)
 }
 
+# calculate weighted SPRT
+calc_wt_sprt <- function(data) {
+  data <-
+  data %>%
+  group_by(simulation) %>%
+  mutate(wt = 0.3,
+          lagval  = lag(sr)) %>%
+  rowwise() %>%
+  mutate(wsprt = sum( (wt * sr) + ((1 - wt) * lagval), na.rm = TRUE),
+         decision_wt = case_when(wsprt <= a & wsprt >= b ~"?",
+                              wsprt > a ~ "H1",
+                              wsprt < b ~ "H0")) %>%
+  select(-lagval)
+  return(data)
+}
+
 my_theme <- function(...) theme_minimal(base_size = 15) 
 ```
 
@@ -881,7 +897,7 @@ ggplot(df, aes(x = day, y = n, group = simulation, col = as.factor(simulation)))
 ```{r, echo = TRUE, warning = FALSE}
 # see methods section of Merl et al. (2009) https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0005807
 
-t <- 1:50 # days
+time <- 1:50 # days
 N <- 10^2  # pop size
 i0 <- 1 # init infected
 s0 <- N - i0 # init susc
@@ -891,15 +907,15 @@ gamma <- 1/5
 beta <- r0 * gamma
 k <- 0.1
 
-out <- matrix(NA, nrow = length(t), ncol = 4)
-out[,1] <- t
+out <- matrix(NA, nrow = length(time), ncol = 4)
+out[,1] <- time
 out[1,2] <- s0
 out[1,3] <- i0
 out[1, 4] <- 0 # no recovered
 
 
 i <- 1
-while(i < tail(t,1) & out[i,3] > 0) {
+while(i < tail(time,1) & out[i,3] > 0) {
   # calculate probability of a susceptible (resp. infected) becomeing infected (resp. recovering)
   prob_inf <- (1 - (k / (k + beta * out[i,3])) ^ k)
   prob_rec <- (1 - exp(-gamma))
@@ -956,17 +972,20 @@ test_sprt <-
                               sprt < b ~ "H0"))
 test_sprt <- calc_reset_sr(test_sprt)
 
-test_sprt <-
-  test_sprt %>%
-  group_by(simulation) %>%
-  mutate(wt = 0.3,
-          lagval  = lag(sr)) %>%
-  rowwise() %>%
-  mutate(wsprt = sum( (wt * sr) + ((1 - wt) * lagval), na.rm = TRUE),
-         decision_wt = case_when(wsprt <= a & wsprt >= b ~"?",
-                              wsprt > a ~ "H1",
-                              wsprt < b ~ "H0")) %>%
-  select(-lagval)
+# test_sprt <-
+#   test_sprt %>%
+#   group_by(simulation) %>%
+#   mutate(wt = 0.3,
+#           lagval  = lag(sr)) %>%
+#   rowwise() %>%
+#   mutate(wsprt = sum( (wt * sr) + ((1 - wt) * lagval), na.rm = TRUE),
+#          decision_wt = case_when(wsprt <= a & wsprt >= b ~"?",
+#                               wsprt > a ~ "H1",
+#                               wsprt < b ~ "H0")) %>%
+#   select(-lagval)
+
+test_sprt <- calc_wt_sprt(test_sprt)
+  
 
 ```
 
