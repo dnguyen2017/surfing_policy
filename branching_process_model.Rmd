@@ -213,7 +213,7 @@ ggplot(test) +
   labs(title = "compare distributions")
 ```
 
-```{r branching_model, eval = FALSE}
+```{r branching_model, eval = FALSE, echo = TRUE}
 episim <- function (t, i_0, r0, disp, cont, nsim) {
   
   # init list to store each simulation
@@ -276,10 +276,6 @@ ggplot() +
 
 ```
 
-```{r}
-out <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont, nsim = 1)
-```
-
 
 <!-- ### Define acceptance and rejection region -->
 <!-- *Under construction* -->
@@ -294,63 +290,26 @@ out <- episim(t = t, i_0 = i_0, r0 = r0, disp = disp, cont = cont, nsim = 1)
 <!--   * explanation of impact of control type and magnitude on outbreak dynamics (e.g., extinction probability) -->
 <!--   * identify thresholds to determine $\Theta_0$ and $\Theta_1$ -->
 
-```{r extinction_prob, cache = TRUE} 
+```{r extinction_prob, cache = TRUE, echo = TRUE} 
 # per supplement of lloyd-smith et al. 2005:
 # The probability that the population is extinct by the nth generation is denoted q and the pgf is denoted g(s).
 # Then q = g_n(q)  as n -> inf and q is bounded [0,1]
 # where g(s) = (1 + (r0/k) * (1 - s*))^(-k), for the NB model
 # and g_0(s) = s, g_1(s) = g(s), ..., g_n+1(s) = g(g_n(s))
 
+# probability generating function for NB
 gfun <- function (s, r0, k) { # g(s; r0, k) 
   return((1 + (r0/k) * (1 - s))^(-k))
 }
-
-niteration <- 10^4
-# q <- vector("numeric", length = niteration + 1)
-# q[1] <- 0 # s
-# 
-# # set values of R to calculate extinction probability
-# r0_vec <- seq(0.1, 5, by = 0.1)
-# q_list <- vector("list", length = length(r0_vec))
-# 
-# for (i in seq_along(r0_vec)) {
-#   # init vector to store values of q
-#   q <- vector("numeric", length = niteration + 1)
-#   q[1] <- 0 # g_0(0)
-#   
-#   for (j in 1:(niteration + 1)) {
-#     q[j + 1] <- gfun(q[j], r0_vec[i], 0.16) # calculate g_1(0), ..., g_n(0) 
-#   }
-#   
-#   q_list[[i]] <- tibble(n = 0:(niteration + 1),
-#                         pext = q,
-#                         r0 = r0_vec[i])
-# }
-# 
-# pext_df <- bind_rows(q_list)
-# 
-# # verify convergence of q (all lines should asymptote)
-# # ggplot(pext_df, aes(x = n, y = pext, col = r0, group = r0)) +
-# #   geom_line() + viridis::scale_color_viridis()
-# 
-# pext_df %>%
-#   group_by(r0) %>%
-#   summarize(p_extinction = max(pext)) %>%
-#   ggplot() +
-#   geom_line(aes(x = r0, y = p_extinction), size = 1.5) +
-#   geom_vline(aes(xintercept = 1), linetype = "dashed") +
-#   lims(y = c(0,1)) +
-#   labs(title = "Probability of stochastic extinction of outbreak",
-#        x = "Basic reproductive number (R0)",
-#        y = "probability of extinction (q)",
-#        caption = "dispersion: k = 0.16")
 
 # estimates of k for SARS-CoV-2 
 k_vec <- c(0.54, 0.14, 6.95, # median and 90 % highest density interval from Riou and Althaus (2020) Euro Surveill
            0.1, 0.05, 0.2)   # endo et al. 2020 wellcome open research
 r0_vec <- seq(0.1, 5, by = 0.1)
 q_list <- vector("list", length(k_vec)*length(r0_vec))
+niteration <- 10^4
 
+# calculate g_n(0) as n -> niteration. This is the probality of extinction when there is initially 1 infected
 x <- 1
 for (i in seq_along(k_vec)) {
   # init vector to store values of q
