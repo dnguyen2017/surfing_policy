@@ -928,6 +928,141 @@ ggplot(out, aes(x = time, y = number, col = class)) +
 
 ```
 
+```{r}
+r_linear <- seq(2, 0.1, by = -0.1)
+thresh_R <- 0.7
+rejection <- c(0, thresh_R)
+acceptance <- c(thresh_R + 10^-6, 2.5)
+
+set.seed(123)
+test <- episim(t = t, i_0 = 10^2, r0 = r_linear, disp = disp, cont = cont, nsim = n)
+
+```
+
+
+```{r}
+test_sprt <- calc_sr(test, accept = acceptance, reject = rejection)
+
+test_sprt <-
+  test_sprt %>%  
+  group_by(simulation) %>%
+  mutate(sr = log(lik1/lik0) ,
+         sr = ifelse(is.na(sr), 0, sr),
+         sprt = cumsum(sr),
+         a = log( (1 - 0.05)/ 0.05),
+         b = log(0.05/(1 - 0.05)),
+         decision = case_when(sprt <= a & sprt >= b ~"?",
+                              sprt > a ~ "H1",
+                              sprt < b ~ "H0"))
+test_sprt <- calc_reset_sr(test_sprt)
+
+test_sprt <-
+  test_sprt %>%
+  group_by(simulation) %>%
+  mutate(wt = 0.3,
+          lagval  = lag(sr)) %>%
+  rowwise() %>%
+  mutate(wsprt = sum( (wt * sr) + ((1 - wt) * lagval), na.rm = TRUE),
+         decision_wt = case_when(wsprt <= a & wsprt >= b ~"?",
+                              wsprt > a ~ "H1",
+                              wsprt < b ~ "H0")) %>%
+  select(-lagval)
+
+```
+
+
+```{r}
+test_sprt %>%
+  ggplot() +
+  geom_line(aes(x = time, y = infected, group = simulation)) +
+  geom_point(aes(x = time, y = infected, group = simulation, col = decision)) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
+  scale_y_log10() +
+  viridis::scale_color_viridis(discrete = TRUE) +
+  labs(title = "a",#title = "Outbreak sizes and decisions",
+       y = expression(New~infections~(x[t])),
+       x = "Outbreak generation (t)",
+       col = "Decision") + 
+  my_theme()
+
+
+test_sprt %>%
+  ggplot() +
+  geom_line(aes(x = time, y = infected, group = simulation)) +
+  geom_point(aes(x = time, y = infected, group = simulation, col = decision_reset)) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
+  scale_y_log10() +
+  viridis::scale_color_viridis(discrete = TRUE) +
+  labs(title = "a",#title = "Outbreak sizes and decisions",
+       y = expression(New~infections~(x[t])),
+       x = "Outbreak generation (t)",
+       col = "Decision") + 
+  my_theme()
+
+test_sprt %>%
+  ggplot() +
+  geom_line(aes(x = time, y = infected, group = simulation)) +
+  geom_point(aes(x = time, y = infected, group = simulation, col = decision_wt)) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
+  scale_y_log10() +
+  viridis::scale_color_viridis(discrete = TRUE) +
+  labs(title = "a",#title = "Outbreak sizes and decisions",
+       y = expression(New~infections~(x[t])),
+       x = "Outbreak generation (t)",
+       col = "Decision") + 
+  my_theme()
+```
+
+```{r}
+test_sprt %>%
+  group_by(time) %>%
+  count(decision) %>%
+  complete(nesting(decision = c("?", "H0", "H1")), fill = list(n = 0)) %>%
+  ggplot() +
+  geom_bar(aes(x = time, y = n, fill = decision), stat = "identity", position = "fill", width = 1) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
+  labs(title = "d",#title = "Conclusions of of reset SPRT over time",
+       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+       y = "Proportion of simulations",
+       x = "Outbreak generation (t)",
+       fill = "Decision") +
+  my_theme()  
+
+test_sprt %>%
+  group_by(time) %>%
+  count(decision_reset) %>%
+  complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
+  ggplot() +
+  geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill", width = 1) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
+  labs(title = "d",#title = "Conclusions of of reset SPRT over time",
+       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+       y = "Proportion of simulations",
+       x = "Outbreak generation (t)",
+       fill = "Decision") +
+  my_theme()  
+
+test_sprt %>%
+  group_by(time) %>%
+  count(decision_wt) %>%
+  complete(nesting(decision_wt = c("?", "H0", "H1")), fill = list(n = 0)) %>%
+  ggplot() +
+  geom_bar(aes(x = time, y = n, fill = decision_wt), stat = "identity", position = "fill", width = 1) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
+  labs(title = "d",#title = "Conclusions of of reset SPRT over time",
+       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+       y = "Proportion of simulations",
+       x = "Outbreak generation (t)",
+       fill = "Decision") +
+  my_theme()  
+```
+
 
 # References {-}
 
