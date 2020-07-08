@@ -944,19 +944,25 @@ ggplot(out, aes(x = time, y = number, col = class)) +
 
 ```
 
-```{r}
-r_linear <- seq(2, 0.1, by = -0.1)
+# weighted SPRT
+```{r simulate_date_wsprt}
+sim_t <- seq.int(1, 40, by = 1)
+r_linear <- seq(2, 0.6, by = -0.1)
+r_const <- rep(0.6, time = length(sim_t) - length(r_linear))
+
+r_seq <- c(r_linear, r_const)
+
 thresh_R <- 0.7
 rejection <- c(0, thresh_R)
 acceptance <- c(thresh_R + 10^-6, 2.5)
 
 set.seed(123)
-test <- episim(t = t, i_0 = 10^2, r0 = r_linear, disp = disp, cont = cont, nsim = n)
+test <- episim(t = sim_t, i_0 = 10^2, r0 = r_seq, disp = disp, cont = cont, nsim = n)
 
 ```
 
 
-```{r}
+```{r calc_wsprt}
 test_sprt <- calc_sr(test, accept = acceptance, reject = rejection)
 
 test_sprt <-
@@ -989,8 +995,69 @@ test_sprt <- calc_wt_sprt(test_sprt)
 
 ```
 
+```{r}
+test_sprt %>% ungroup() %>% group_by(simulation) %>% summarize(final_infected = last(infected)) %>% unique()
+
+test_sprt %>%
+  ggplot() +
+  geom_line(aes(x = time, y = infected, group = simulation), alpha = 0.5)
+```
+
 
 ```{r}
+is_h1 <- function(x) x == "H1"
+is_thresh_R <- function(x) x == thresh_R
+
+delay_wt <- test_sprt %>% ungroup() %>%
+  select(time, R0_true, simulation, decision_wt) %>%
+  group_by(simulation) %>%
+  mutate(detect_time = detect_index(decision_wt, is_h1),
+         detect_time = ifelse(detect_time > 0, detect_time, 10^6),
+         true_time = detect_index(R0_true, is_thresh_R)) %>%
+  summarize(delay = unique(detect_time - true_time)) 
+
+delay_wt %>% pull(delay) %>% ecdf() %>% 
+  plot(xlim = c(1, 10), ylim = c(0, 1), 
+       main = "Distribution of detection delay for WSPRT", ylab = "proportion of simulations", xlab = "detection lag")
+  
+# delay_wt %>% 
+#   ggplot() +
+#   stat_ecdf(aes(x = delay)) + lims(x = c(0, 9))
+#   #geom_bar(aes(x = delay)) + scale_x_continuous(breaks = 1:9)
+
+  
+```
+
+```{r}
+delay_reset <- test_sprt %>% ungroup() %>%
+  select(time, R0_true, simulation, decision_reset) %>%
+  group_by(simulation) %>%
+  mutate(detect_time = detect_index(decision_reset, is_h1),
+         detect_time = ifelse(detect_time > 0, detect_time, 10^6),
+         true_time = detect_index(R0_true, is_thresh_R)) %>%
+  summarize(delay = unique(detect_time - true_time)) 
+
+delay_reset %>% pull(delay) %>% ecdf() %>% 
+  plot(xlim = c(1, 10), ylim = c(0, 1), 
+       main = "Distribution of detection delay for RSPRT", ylab = "proportion of simulations", xlab = "detection lag")
+```
+
+```{r}
+delay_regular <- test_sprt %>% ungroup() %>%
+  select(time, R0_true, simulation, decision) %>%
+  group_by(simulation) %>%
+  mutate(detect_time = detect_index(decision, is_h1),
+         detect_time = ifelse(detect_time > 0, detect_time, 10^6),
+         true_time = detect_index(R0_true, is_thresh_R)) %>%
+  summarize(delay = unique(detect_time - true_time)) 
+
+delay_regular %>% pull(delay) %>% ecdf() %>% 
+  plot(xlim = c(1, 10), ylim = c(0, 1), 
+       main = "Distribution of detection delay for SPRT", ylab = "proportion of simulations", xlab = "detection lag")
+```
+
+
+```{r comparison_line_plots}
 test_sprt %>%
   ggplot() +
   geom_line(aes(x = time, y = infected, group = simulation)) +
@@ -1035,7 +1102,7 @@ test_sprt %>%
   my_theme()
 ```
 
-```{r}
+```{r comparison_bar_plots}
 test_sprt %>%
   group_by(time) %>%
   count(decision) %>%
