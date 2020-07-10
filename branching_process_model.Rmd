@@ -804,6 +804,315 @@ lin_high_sprt %>%
 
 The effect of outbreak severity on the ability of RSPRT to reject $H_0$ in an appropriate and timely manner is similar to the case 1 for the breakpoint change in $R_t$. However, there is now a marked delay of one generation in the majority of simulations before RSPRT reject $H_0$ (figure 4 c and d). There is also a mode in proportion of simluations rejecting $H_0$ at generation 18 in both outbreak severity scenarios. The factors influencing this will be important to quantify. It would be interesting to examine how the rate and functional form of the trend in $R_t$ influences this time to detection.
 
+# Comparing weighted SPRT (WSPRT) and reset SPRT (RSPRT)
+
+Here, I compared the performance of WSPRT and RSPRT for low (100) and high (500) initial infected. In all figures, top panels are high initial infected and bottom panels are low initial infected.
+
+```{r simulate_date_wsprt, cache = TRUE}
+sim_t <- seq.int(1, 40, by = 1)
+r_linear <- seq(2, 0.6, by = -0.1)
+r_const <- rep(0.6, time = length(sim_t) - length(r_linear))
+
+r_seq <- c(r_linear, r_const)
+
+thresh_R <- 0.7
+rejection <- c(0, thresh_R)
+acceptance <- c(thresh_R + 10^-6, 2.5)
+
+set.seed(123)
+test <- episim(t = sim_t, i_0 = 5*10^2, r0 = r_seq, disp = disp, cont = cont, nsim = n)
+test_low <- episim(t = sim_t, i_0 = 10^2, r0 = r_seq, disp = disp, cont = cont, nsim = n)
+
+```
+
+
+```{r calc_wsprt}
+test_sprt <- calc_sr(test, accept = acceptance, reject = rejection)
+
+test_sprt <-
+  test_sprt %>%  
+  group_by(simulation) %>%
+  mutate(sr = log(lik1/lik0) ,
+         sr = ifelse(is.na(sr), 0, sr),
+         sprt = cumsum(sr),
+         a = log( (1 - 0.05)/ 0.05),
+         b = log(0.05/(1 - 0.05)),
+         decision = case_when(sprt <= a & sprt >= b ~"?",
+                              sprt > a ~ "H1",
+                              sprt < b ~ "H0"))
+test_sprt <- calc_reset_sr(test_sprt)
+
+test_sprt_low <- calc_sr(test_low, accept = acceptance, reject = rejection)
+
+test_sprt_low <-
+  test_sprt_low %>%  
+  group_by(simulation) %>%
+  mutate(sr = log(lik1/lik0) ,
+         sr = ifelse(is.na(sr), 0, sr),
+         sprt = cumsum(sr),
+         a = log( (1 - 0.05)/ 0.05),
+         b = log(0.05/(1 - 0.05)),
+         decision = case_when(sprt <= a & sprt >= b ~"?",
+                              sprt > a ~ "H1",
+                              sprt < b ~ "H0"))
+test_sprt_low <- calc_reset_sr(test_sprt_low)
+
+
+# test_sprt <-
+#   test_sprt %>%
+#   group_by(simulation) %>%
+#   mutate(wt = 0.3,
+#           lagval  = lag(sr)) %>%
+#   rowwise() %>%
+#   mutate(wsprt = sum( (wt * sr) + ((1 - wt) * lagval), na.rm = TRUE),
+#          decision_wt = case_when(wsprt <= a & wsprt >= b ~"?",
+#                               wsprt > a ~ "H1",
+#                               wsprt < b ~ "H0")) %>%
+#   select(-lagval)
+
+test_sprt <- calc_wt_sprt(test_sprt)
+test_sprt_low <- calc_wt_sprt(test_sprt_low)
+  
+
+```
+
+### Detection delay distributions
+
+Detection delay is the number of generations between the time that $H_1$ is first rejected and the time that $H_1$ first became true. In general, RSPRT has a smaller detection delay than WSPRT. When the outbreak is large enough (top panel) both tests perform similarly. However,for smaller outbreaks (bottom panel) there are simualtions for both tests where the null hypothesis is never rejected before the end of the outbreak. For the RSPRT about 20 % of simulations fail to reject the null; for the WSPRT about 30 % of simulations fail to reject the null. These are both much larger type II error rates than specified (here, $\beta = 0.05$) using the Wald approximations for the decision thresholds A and B. In the later plots it is clear that type I error is close to 0 which is much smaller than specified ($\alpha = 0.05$). This does leave room for the possibility that narrower boundaries would be appropriate since there is room for additional type I error which will also improve the power of the tests.
+
+```{r out.width="50%", fig.show="hold"}
+is_h1 <- function(x) x == "H1"
+is_thresh_R <- function(x) x == thresh_R
+
+delay_reset <- test_sprt %>% ungroup() %>%
+  select(time, R0_true, simulation, decision_reset) %>%
+  group_by(simulation) %>%
+  mutate(detect_time = detect_index(decision_reset, is_h1),
+         detect_time = ifelse(detect_time > 0, detect_time, 10^6),
+         true_time = detect_index(R0_true, is_thresh_R)) %>%
+  summarize(delay = unique(detect_time - true_time)) 
+
+delay_reset %>% pull(delay) %>% ecdf() %>% 
+  plot(xlim = c(1, 10), ylim = c(0, 1), 
+       main = "Distribution of detection delay for RSPRT", ylab = "P(reject null | null is false)", xlab = "detection lag")
+
+delay_wt <- test_sprt %>% ungroup() %>%
+  select(time, R0_true, simulation, decision_wt) %>%
+  group_by(simulation) %>%
+  mutate(detect_time = detect_index(decision_wt, is_h1),
+         detect_time = ifelse(detect_time > 0, detect_time, 10^6),
+         true_time = detect_index(R0_true, is_thresh_R)) %>%
+  summarize(delay = unique(detect_time - true_time)) 
+
+delay_wt %>% pull(delay) %>% ecdf() %>% 
+  plot(xlim = c(1, 10), ylim = c(0, 1), 
+       main = "Distribution of detection delay for WSPRT", ylab = "P(reject null | null is false)", xlab = "detection lag")
+  
+```
+
+
+```{r out.width = "50%", fig.show = "hold"}
+delay_reset_low <- test_sprt_low %>% ungroup() %>%
+  select(time, R0_true, simulation, decision_reset) %>%
+  group_by(simulation) %>%
+  mutate(detect_time = detect_index(decision_reset, is_h1),
+         detect_time = ifelse(detect_time > 0, detect_time, 10^6),
+         true_time = detect_index(R0_true, is_thresh_R)) %>%
+  summarize(delay = unique(detect_time - true_time)) 
+
+delay_reset_low %>% pull(delay) %>% ecdf() %>% 
+  plot(xlim = c(1, 10), ylim = c(0, 1), 
+       main = "Distribution of detection delay for RSPRT", ylab = "P(reject null | null is false)", xlab = "detection lag")
+
+delay_wt_low <- test_sprt_low %>% ungroup() %>%
+  select(time, R0_true, simulation, decision_wt) %>%
+  group_by(simulation) %>%
+  mutate(detect_time = detect_index(decision_wt, is_h1),
+         detect_time = ifelse(detect_time > 0, detect_time, 10^6),
+         true_time = detect_index(R0_true, is_thresh_R)) %>%
+  summarize(delay = unique(detect_time - true_time)) 
+
+delay_wt_low %>% pull(delay) %>% ecdf() %>% 
+  plot(xlim = c(1, 10), ylim = c(0, 1), 
+       main = "Distribution of detection delay for WSPRT", ylab = "P(reject null | null is false)", xlab = "detection lag")
+```
+
+
+```{r eval = FALSE}
+delay_regular <- test_sprt %>% ungroup() %>%
+  select(time, R0_true, simulation, decision) %>%
+  group_by(simulation) %>%
+  mutate(detect_time = detect_index(decision, is_h1),
+         detect_time = ifelse(detect_time > 0, detect_time, 10^6),
+         true_time = detect_index(R0_true, is_thresh_R)) %>%
+  summarize(delay = unique(detect_time - true_time)) 
+
+delay_regular %>% pull(delay) %>% ecdf() %>% 
+  plot(xlim = c(1, 10), ylim = c(0, 1), 
+       main = "Distribution of detection delay for SPRT", ylab = "proportion of simulations", xlab = "detection lag")
+```
+
+The following plots are included for comparison to previous results - most of the important information can be understood from the detection delay distribtuion plots. But, these plots do show a major different between RSPRT and WSPRT: upon $H_1$
+ beocming true, most RSPRT decision sequences have an instance of uncertainty whereas the WSPRT decision sequences (falsly) accept $H_0$ for another timestep (or two) which reflects the difference between how past evidence influences current decisions for each test.
+```{r comparison_line_plots, out.width="50%", fig.show="hold", warning=FALSE}
+# test_sprt %>%
+#   ggplot() +
+#   geom_line(aes(x = time, y = infected, group = simulation)) +
+#   geom_point(aes(x = time, y = infected, group = simulation, col = decision)) +
+#   geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+#   geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
+#   scale_y_log10() +
+#   viridis::scale_color_viridis(discrete = TRUE) +
+#   labs(title = "a",#title = "Outbreak sizes and decisions",
+#        y = expression(New~infections~(x[t])),
+#        x = "Outbreak generation (t)",
+#        col = "Decision") + 
+#   my_theme()
+
+
+test_sprt %>%
+  ggplot() +
+  geom_line(aes(x = time, y = infected, group = simulation), alpha = 0.5) +
+  geom_jitter(aes(x = time, y = infected, group = simulation, col = decision_reset), alpha = 0.5) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
+  scale_y_log10() +
+  viridis::scale_color_viridis(discrete = TRUE) +
+  labs(title = "RSPRT",#title = "Outbreak sizes and decisions",
+       y = expression(New~infections~(x[t])),
+       x = "Outbreak generation (t)",
+       col = "Decision") + 
+  my_theme()
+
+test_sprt %>%
+  ggplot() +
+  geom_line(aes(x = time, y = infected, group = simulation), alpha = 0.5) +
+  geom_jitter(aes(x = time, y = infected, group = simulation, col = decision_wt), alpha = 0.5) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
+  scale_y_log10() +
+  viridis::scale_color_viridis(discrete = TRUE) +
+  labs(title = "WSPRT",#title = "Outbreak sizes and decisions",
+       y = expression(New~infections~(x[t])),
+       x = "Outbreak generation (t)",
+       col = "Decision") + 
+  my_theme()
+```
+
+```{r out.width = "50%", fig.show = "hold", warning=FALSE}
+test_sprt_low %>%
+  ggplot() +
+  geom_line(aes(x = time, y = infected, group = simulation), alpha = 0.5) +
+  geom_jitter(aes(x = time, y = infected, group = simulation, col = decision_reset), alpha = 0.5) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
+  scale_y_log10() +
+  viridis::scale_color_viridis(discrete = TRUE) +
+  labs(title = "RSPRT",#title = "Outbreak sizes and decisions",
+       y = expression(New~infections~(x[t])),
+       x = "Outbreak generation (t)",
+       col = "Decision") + 
+  my_theme()
+
+test_sprt_low %>%
+  ggplot() +
+  geom_line(aes(x = time, y = infected, group = simulation), alpha = 0.5) +
+  geom_jitter(aes(x = time, y = infected, group = simulation, col = decision_wt), alpha = 0.5) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
+  scale_y_log10() +
+  viridis::scale_color_viridis(discrete = TRUE) +
+  labs(title = "WSPRT",#title = "Outbreak sizes and decisions",
+       y = expression(New~infections~(x[t])),
+       x = "Outbreak generation (t)",
+       col = "Decision") + 
+  my_theme()
+```
+
+
+```{r comparison_bar_plots,out.width="50%", fig.show="hold", warning=FALSE}
+# test_sprt %>%
+#   group_by(time) %>%
+#   count(decision) %>%
+#   complete(nesting(decision = c("?", "H0", "H1")), fill = list(n = 0)) %>%
+#   ggplot() +
+#   geom_bar(aes(x = time, y = n, fill = decision), stat = "identity", position = "fill", width = 1) +
+#   geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+#   geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
+#   labs(title = "d",#title = "Conclusions of of reset SPRT over time",
+#        #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+#        y = "Proportion of simulations",
+#        x = "Outbreak generation (t)",
+#        fill = "Decision") +
+#   my_theme()  
+
+test_sprt %>%
+  group_by(time) %>%
+  count(decision_reset) %>%
+  complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
+  ggplot() +
+  geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill", width = 1) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
+  viridis::scale_fill_viridis(discrete = TRUE) +
+  labs(title = "RSPRT",#title = "Conclusions of of reset SPRT over time",
+       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+       y = "Proportion of simulations",
+       x = "Outbreak generation (t)",
+       fill = "Decision") +
+  my_theme()  
+
+test_sprt %>%
+  group_by(time) %>%
+  count(decision_wt) %>%
+  complete(nesting(decision_wt = c("?", "H0", "H1")), fill = list(n = 0)) %>%
+  ggplot() +
+  geom_bar(aes(x = time, y = n, fill = decision_wt), stat = "identity", position = "fill", width = 1) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
+  viridis::scale_fill_viridis(discrete = TRUE) +
+  labs(title = "WSPRT",#title = "Conclusions of of reset SPRT over time",
+       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+       y = "Proportion of simulations",
+       x = "Outbreak generation (t)",
+       fill = "Decision") +
+  my_theme()  
+```
+
+```{r out.width = "50%", fig.show = "hold", warning=FALSE}
+test_sprt_low %>%
+  group_by(time) %>%
+  count(decision_reset) %>%
+  complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
+  ggplot() +
+  geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill", width = 1) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
+  viridis::scale_fill_viridis(discrete = TRUE) +
+  labs(title = "RSPRT",#title = "Conclusions of of reset SPRT over time",
+       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+       y = "Prop. rejected null",
+       x = "Outbreak generation (t)",
+       fill = "Decision") +
+  my_theme()  
+
+test_sprt_low %>%
+  group_by(time) %>%
+  count(decision_wt) %>%
+  complete(nesting(decision_wt = c("?", "H0", "H1")), fill = list(n = 0)) %>%
+  ggplot() +
+  geom_bar(aes(x = time, y = n, fill = decision_wt), stat = "identity", position = "fill", width = 1) +
+  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
+  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
+  viridis::scale_fill_viridis(discrete = TRUE) +
+  labs(title = "WSPRT",#title = "Conclusions of of reset SPRT over time",
+       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
+       y = "Proportion of simulations",
+       x = "Outbreak generation (t)",
+       fill = "Decision") +
+  my_theme()  
+```
+
 # Next steps
 
 * Define set of performance metrics
@@ -943,310 +1252,6 @@ ggplot(out, aes(x = time, y = number, col = class)) +
   geom_line()
 
 ```
-
-# weighted SPRT
-```{r simulate_date_wsprt, cache = TRUE}
-sim_t <- seq.int(1, 40, by = 1)
-r_linear <- seq(2, 0.6, by = -0.1)
-r_const <- rep(0.6, time = length(sim_t) - length(r_linear))
-
-r_seq <- c(r_linear, r_const)
-
-thresh_R <- 0.7
-rejection <- c(0, thresh_R)
-acceptance <- c(thresh_R + 10^-6, 2.5)
-
-set.seed(123)
-test <- episim(t = sim_t, i_0 = 5*10^2, r0 = r_seq, disp = disp, cont = cont, nsim = n)
-test_low <- episim(t = sim_t, i_0 = 10^2, r0 = r_seq, disp = disp, cont = cont, nsim = n)
-
-```
-
-
-```{r calc_wsprt}
-test_sprt <- calc_sr(test, accept = acceptance, reject = rejection)
-
-test_sprt <-
-  test_sprt %>%  
-  group_by(simulation) %>%
-  mutate(sr = log(lik1/lik0) ,
-         sr = ifelse(is.na(sr), 0, sr),
-         sprt = cumsum(sr),
-         a = log( (1 - 0.05)/ 0.05),
-         b = log(0.05/(1 - 0.05)),
-         decision = case_when(sprt <= a & sprt >= b ~"?",
-                              sprt > a ~ "H1",
-                              sprt < b ~ "H0"))
-test_sprt <- calc_reset_sr(test_sprt)
-
-test_sprt_low <- calc_sr(test_low, accept = acceptance, reject = rejection)
-
-test_sprt_low <-
-  test_sprt_low %>%  
-  group_by(simulation) %>%
-  mutate(sr = log(lik1/lik0) ,
-         sr = ifelse(is.na(sr), 0, sr),
-         sprt = cumsum(sr),
-         a = log( (1 - 0.05)/ 0.05),
-         b = log(0.05/(1 - 0.05)),
-         decision = case_when(sprt <= a & sprt >= b ~"?",
-                              sprt > a ~ "H1",
-                              sprt < b ~ "H0"))
-test_sprt_low <- calc_reset_sr(test_sprt_low)
-
-
-# test_sprt <-
-#   test_sprt %>%
-#   group_by(simulation) %>%
-#   mutate(wt = 0.3,
-#           lagval  = lag(sr)) %>%
-#   rowwise() %>%
-#   mutate(wsprt = sum( (wt * sr) + ((1 - wt) * lagval), na.rm = TRUE),
-#          decision_wt = case_when(wsprt <= a & wsprt >= b ~"?",
-#                               wsprt > a ~ "H1",
-#                               wsprt < b ~ "H0")) %>%
-#   select(-lagval)
-
-test_sprt <- calc_wt_sprt(test_sprt)
-test_sprt_low <- calc_wt_sprt(test_sprt_low)
-  
-
-```
-
-
-
-
-```{r out.width="50%", fig.show="hold"}
-is_h1 <- function(x) x == "H1"
-is_thresh_R <- function(x) x == thresh_R
-
-delay_reset <- test_sprt %>% ungroup() %>%
-  select(time, R0_true, simulation, decision_reset) %>%
-  group_by(simulation) %>%
-  mutate(detect_time = detect_index(decision_reset, is_h1),
-         detect_time = ifelse(detect_time > 0, detect_time, 10^6),
-         true_time = detect_index(R0_true, is_thresh_R)) %>%
-  summarize(delay = unique(detect_time - true_time)) 
-
-delay_reset %>% pull(delay) %>% ecdf() %>% 
-  plot(xlim = c(1, 10), ylim = c(0, 1), 
-       main = "Distribution of detection delay for RSPRT", ylab = "proportion of simulations", xlab = "detection lag")
-
-delay_wt <- test_sprt %>% ungroup() %>%
-  select(time, R0_true, simulation, decision_wt) %>%
-  group_by(simulation) %>%
-  mutate(detect_time = detect_index(decision_wt, is_h1),
-         detect_time = ifelse(detect_time > 0, detect_time, 10^6),
-         true_time = detect_index(R0_true, is_thresh_R)) %>%
-  summarize(delay = unique(detect_time - true_time)) 
-
-delay_wt %>% pull(delay) %>% ecdf() %>% 
-  plot(xlim = c(1, 10), ylim = c(0, 1), 
-       main = "Distribution of detection delay for WSPRT", ylab = "proportion of simulations", xlab = "detection lag")
-  
-```
-
-```{r out.width = "50%", fig.show = "hold"}
-delay_reset_low <- test_sprt_low %>% ungroup() %>%
-  select(time, R0_true, simulation, decision_reset) %>%
-  group_by(simulation) %>%
-  mutate(detect_time = detect_index(decision_reset, is_h1),
-         detect_time = ifelse(detect_time > 0, detect_time, 10^6),
-         true_time = detect_index(R0_true, is_thresh_R)) %>%
-  summarize(delay = unique(detect_time - true_time)) 
-
-delay_reset_low %>% pull(delay) %>% ecdf() %>% 
-  plot(xlim = c(1, 10), ylim = c(0, 1), 
-       main = "Distribution of detection delay for RSPRT", ylab = "proportion of simulations", xlab = "detection lag")
-
-delay_wt_low <- test_sprt_low %>% ungroup() %>%
-  select(time, R0_true, simulation, decision_wt) %>%
-  group_by(simulation) %>%
-  mutate(detect_time = detect_index(decision_wt, is_h1),
-         detect_time = ifelse(detect_time > 0, detect_time, 10^6),
-         true_time = detect_index(R0_true, is_thresh_R)) %>%
-  summarize(delay = unique(detect_time - true_time)) 
-
-delay_wt_low %>% pull(delay) %>% ecdf() %>% 
-  plot(xlim = c(1, 10), ylim = c(0, 1), 
-       main = "Distribution of detection delay for WSPRT", ylab = "proportion of simulations", xlab = "detection lag")
-```
-
-
-```{r eval = FALSE}
-delay_regular <- test_sprt %>% ungroup() %>%
-  select(time, R0_true, simulation, decision) %>%
-  group_by(simulation) %>%
-  mutate(detect_time = detect_index(decision, is_h1),
-         detect_time = ifelse(detect_time > 0, detect_time, 10^6),
-         true_time = detect_index(R0_true, is_thresh_R)) %>%
-  summarize(delay = unique(detect_time - true_time)) 
-
-delay_regular %>% pull(delay) %>% ecdf() %>% 
-  plot(xlim = c(1, 10), ylim = c(0, 1), 
-       main = "Distribution of detection delay for SPRT", ylab = "proportion of simulations", xlab = "detection lag")
-```
-
-
-```{r comparison_line_plots, out.width="50%", fig.show="hold"}
-# test_sprt %>%
-#   ggplot() +
-#   geom_line(aes(x = time, y = infected, group = simulation)) +
-#   geom_point(aes(x = time, y = infected, group = simulation, col = decision)) +
-#   geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
-#   geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
-#   scale_y_log10() +
-#   viridis::scale_color_viridis(discrete = TRUE) +
-#   labs(title = "a",#title = "Outbreak sizes and decisions",
-#        y = expression(New~infections~(x[t])),
-#        x = "Outbreak generation (t)",
-#        col = "Decision") + 
-#   my_theme()
-
-
-test_sprt %>%
-  ggplot() +
-  geom_line(aes(x = time, y = infected, group = simulation), alpha = 0.5) +
-  geom_jitter(aes(x = time, y = infected, group = simulation, col = decision_reset), alpha = 0.5) +
-  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
-  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
-  scale_y_log10() +
-  viridis::scale_color_viridis(discrete = TRUE) +
-  labs(title = "RSPRT",#title = "Outbreak sizes and decisions",
-       y = expression(New~infections~(x[t])),
-       x = "Outbreak generation (t)",
-       col = "Decision") + 
-  my_theme()
-
-test_sprt %>%
-  ggplot() +
-  geom_line(aes(x = time, y = infected, group = simulation), alpha = 0.5) +
-  geom_jitter(aes(x = time, y = infected, group = simulation, col = decision_wt), alpha = 0.5) +
-  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
-  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
-  scale_y_log10() +
-  viridis::scale_color_viridis(discrete = TRUE) +
-  labs(title = "WSPRT",#title = "Outbreak sizes and decisions",
-       y = expression(New~infections~(x[t])),
-       x = "Outbreak generation (t)",
-       col = "Decision") + 
-  my_theme()
-```
-
-```{r out.width = "50%", fig.show = "hold"}
-test_sprt_low %>%
-  ggplot() +
-  geom_line(aes(x = time, y = infected, group = simulation), alpha = 0.5) +
-  geom_jitter(aes(x = time, y = infected, group = simulation, col = decision_reset), alpha = 0.5) +
-  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
-  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
-  scale_y_log10() +
-  viridis::scale_color_viridis(discrete = TRUE) +
-  labs(title = "RSPRT",#title = "Outbreak sizes and decisions",
-       y = expression(New~infections~(x[t])),
-       x = "Outbreak generation (t)",
-       col = "Decision") + 
-  my_theme()
-
-test_sprt_low %>%
-  ggplot() +
-  geom_line(aes(x = time, y = infected, group = simulation), alpha = 0.5) +
-  geom_jitter(aes(x = time, y = infected, group = simulation, col = decision_wt), alpha = 0.5) +
-  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
-  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5) +
-  scale_y_log10() +
-  viridis::scale_color_viridis(discrete = TRUE) +
-  labs(title = "WSPRT",#title = "Outbreak sizes and decisions",
-       y = expression(New~infections~(x[t])),
-       x = "Outbreak generation (t)",
-       col = "Decision") + 
-  my_theme()
-```
-
-
-```{r comparison_bar_plots,out.width="50%", fig.show="hold"}
-# test_sprt %>%
-#   group_by(time) %>%
-#   count(decision) %>%
-#   complete(nesting(decision = c("?", "H0", "H1")), fill = list(n = 0)) %>%
-#   ggplot() +
-#   geom_bar(aes(x = time, y = n, fill = decision), stat = "identity", position = "fill", width = 1) +
-#   geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
-#   geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
-#   labs(title = "d",#title = "Conclusions of of reset SPRT over time",
-#        #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
-#        y = "Proportion of simulations",
-#        x = "Outbreak generation (t)",
-#        fill = "Decision") +
-#   my_theme()  
-
-test_sprt %>%
-  group_by(time) %>%
-  count(decision_reset) %>%
-  complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
-  ggplot() +
-  geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill", width = 1) +
-  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
-  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
-  viridis::scale_fill_viridis(discrete = TRUE) +
-  labs(title = "RSPRT",#title = "Conclusions of of reset SPRT over time",
-       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
-       y = "Proportion of simulations",
-       x = "Outbreak generation (t)",
-       fill = "Decision") +
-  my_theme()  
-
-test_sprt %>%
-  group_by(time) %>%
-  count(decision_wt) %>%
-  complete(nesting(decision_wt = c("?", "H0", "H1")), fill = list(n = 0)) %>%
-  ggplot() +
-  geom_bar(aes(x = time, y = n, fill = decision_wt), stat = "identity", position = "fill", width = 1) +
-  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
-  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
-  viridis::scale_fill_viridis(discrete = TRUE) +
-  labs(title = "WSPRT",#title = "Conclusions of of reset SPRT over time",
-       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
-       y = "Proportion of simulations",
-       x = "Outbreak generation (t)",
-       fill = "Decision") +
-  my_theme()  
-```
-
-```{r out.width = "50%", fig.show = "hold"}
-test_sprt_low %>%
-  group_by(time) %>%
-  count(decision_reset) %>%
-  complete(nesting(decision_reset = c("?", "H0", "H1")), fill = list(n = 0)) %>%
-  ggplot() +
-  geom_bar(aes(x = time, y = n, fill = decision_reset), stat = "identity", position = "fill", width = 1) +
-  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
-  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
-  viridis::scale_fill_viridis(discrete = TRUE) +
-  labs(title = "RSPRT",#title = "Conclusions of of reset SPRT over time",
-       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
-       y = "Proportion of simulations",
-       x = "Outbreak generation (t)",
-       fill = "Decision") +
-  my_theme()  
-
-test_sprt_low %>%
-  group_by(time) %>%
-  count(decision_wt) %>%
-  complete(nesting(decision_wt = c("?", "H0", "H1")), fill = list(n = 0)) %>%
-  ggplot() +
-  geom_bar(aes(x = time, y = n, fill = decision_wt), stat = "identity", position = "fill", width = 1) +
-  geom_vline(aes(xintercept = which(r_linear == 0.7)), linetype = "dashed", size = 1.5) +
-  geom_vline(aes(xintercept = which(r_linear == 1)), size = 1.5)  +
-  viridis::scale_fill_viridis(discrete = TRUE) +
-  labs(title = "WSPRT",#title = "Conclusions of of reset SPRT over time",
-       #subtitle = "H0 is true from t = 1:10; H1 is true from t =11:20",
-       y = "Proportion of simulations",
-       x = "Outbreak generation (t)",
-       fill = "Decision") +
-  my_theme()  
-```
-
 
 # References {-}
 
